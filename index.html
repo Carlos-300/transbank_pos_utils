@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="./transbakPosFuncion.js"></script>
+    <script src="https://unpkg.com/transbank-pos-sdk-web@4.0.0/dist/pos.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+
+</head>
+<body>
+    <div class="container">
+        <!-- <div class="row" style="margin-bottom: 20px; margin-top: 20px;">
+            <h4 class="text-center">Configuración</h4>
+            <div class="row">
+                <div class="col">
+                    <label class="form-label" for="baudratePos">Baudrate:</label><br>
+                    <select name="baudratePos"  class="form-select" id="baudratePos" class="w-40">
+                    <option value="115200" selected="">115200</option>
+                    <option value="57600">57600</option>
+                    <option value="19200">19200</option>
+                    <option value="14400">14400</option>
+                    <option value="9600">9600</option>
+                    <option value="4800">4800</option>
+                    <option value="2400">2400</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="comPos">Select COM:</label><br>
+                    <select name="comPos"  class="form-select" id="comPos" class="w-40">
+                      
+                    </select>
+                </div>
+            </div>
+        </div> -->
+        <div class="row" style="margin-bottom: 20px; margin-top: 20px;">
+            <h4>Venta</h4>
+            <div class="col">
+                <label class="form-label" for="montoPos">Monto:</label>
+                <input class="form-control" type="text" id="montoPos" name="montoPos" placeholder="Monto" required="" value="">
+            </div>
+            <div class="col">
+                <label class="form-label" for="ticketPos">ticket:</label>
+                <input class="form-control" type="text" id="ticketPos" name="ticketPos" placeholder="ticket" required="" value="">
+            </div>
+            <div class="col">
+                <label class="form-label" for="enviar">Enviar:</label><br>
+                <button class="btn btn-warning text-center" id="enviar" style="width: 250px;" onclick="llamadoDeAcciones(11,'enviar')">Ejecutar Venta</button> 
+            </div>
+        </div>
+
+        <div class="row" style="margin-bottom: 20px; margin-top: 20px;">
+     
+            <h4>Anulación</h4>
+            <div class="col">
+                <label class="form-label" for="numberOperation">Número de operación:</label>
+                <input class="form-control" type="text" id="numberOperation" name="numberOperation" placeholder="Número de operación" required="" value="">
+            </div>
+            <div class="col">
+                <label class="form-label" for="enviar_anular">Enviar:</label><br>
+                <button class="btn btn-warning text-center" id="enviar_anular" style="width: 250px;" onclick="llamadoDeAcciones(10,'enviar_anular')">Ejecutar Anulación</button> 
+            </div>
+        </div>
+      
+  
+        <div class="row text-center">
+            <h3>Tabla de Ventas exitosa</h3>
+            <!-- <button class="btn btn-warning text-center" style="width: 250px;" onclick="iniciarTransbankVenta()">Ejecutar Venta prueba</button>  -->
+            <button class="btn btn-warning text-center" style="width: 250px;" onclick="deleteElementsTable('table_venta_exitosa')">Limpiar tabla</button> 
+            <div class="table-responsive">
+                <table class="table" id="table_venta_exitosa">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="row text-center">
+            <h3>Tabla de Ventas Fallida</h3>
+            <!-- <button class="btn btn-warning text-center" style="width: 250px;" onclick="iniciarTransbankVentaFallida()">Ejecutar Venta Fallida</button>  -->
+            <button class="btn btn-warning text-center" style="width: 250px;" onclick="deleteElementsTable('table_venta_fallida')">Limpiar tabla</button> 
+            <div class="table-responsive">
+                <table class="table" id="table_venta_fallida">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="row text-center">
+            <h3>Tabla detalle de ventas</h3>
+            <button class="btn btn-warning text-center" style="width: 250px;" id="detalle_venta" onclick="llamadoDeAcciones(9,'detalle_venta')">Generar Tabla de detalle</button> 
+            <button class="btn btn-warning text-center" style="width: 250px;" onclick="deleteElementsTable('table_venta_detalle')">Limpiar tabla</button> 
+            <div class="table-responsive">
+                <table class="table" id="table_venta_detalle">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row">
+            <h4 class="text-center">Funciones Transbank</h3>
+                <br>
+            <div class="container">
+                <div class="row">
+                    <div class="col text-center">
+                        <button class="btn btn-warning" id="conectar_agente" onclick="ConnectAgent()">Conectar Agente</button> 
+                        <button class="btn btn-warning" id="conectar_puerto" onclick="ConectarTransbankPosOpenPort()">Conectar POS (autoconnect)</button> 
+                        <button class="btn btn-warning" id="ver_puertos" onclick="llamadoDeAcciones(1,'ver_puertos')">Puertos</button> 
+                        <button class="btn btn-warning" id="cargar_llaves" onclick="llamadoDeAcciones(2,'cargar_llaves')">Cargar llaves</button> 
+                        
+                        <button class="btn btn-warning" id="btn_poll" onclick="llamadoDeAcciones(3,'btn_poll')">Poll</button> 
+                        <button class="btn btn-warning" id="total_ventas" onclick="llamadoDeAcciones(4,'total_ventas')">Obtener total de ventas</button> 
+                        <br>
+                        <button class="btn btn-warning" id="ultima_venta" onclick="llamadoDeAcciones(5,'ultima_venta')">última venta</button> 
+                        <button class="btn btn-warning" id="cerrarDia" onclick="llamadoDeAcciones(6,'cerrarDia')">Cerrar día</button> 
+                        
+                        <button class="btn btn-warning" id="detalle_consola" onclick="llamadoDeAcciones(7,'detalle_consola')">Obtener detalle de ventas</button>
+                        <button class="btn btn-warning" id="detalle_pos" onclick="llamadoDeAcciones(8,'detalle_pos')">Obtener detalle de ventas POS</button>
+                        <button class="btn btn-warning" id="cerrar_puerto" onclick="closePortTransbanck()">Desconectar POS</button>
+                        <button class="btn btn-warning" id="cerrar_agente" onclick="disconnectTransbankAgente()">Desconectar Agente</button>
+                    </div>
+                </div>
+                <br>
+                <div class="row" style="margin-bottom: 50px;">
+                    <h6 class="text-center">Resultado (Consola)</h6>
+                    <br>
+                    <div id="console_log" style="display: block; word-wrap: break-word; white-space: pre-wrap; overflow-wrap: break-word; height: 400px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    </body>
+
+</html>
