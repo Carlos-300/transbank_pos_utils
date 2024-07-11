@@ -66,7 +66,30 @@ var responseCodesPos = {
     95: "Error al Imprimir TASA"
     };
 
+async function CloseDayTransbank(){
+    try{
+        const closeday = await Transbank.POS.closeDay();
+        if (closeday != null){
+            var msj = " ";
+            let data_key = Object.keys(closeday); // Genera un array con las keys del diccionario
+            for (let x=0 ; x < data_key.length; x++){
+                if(data_key[x]== "commerceCode"){
+                    msj += "Con código de comercio ="+closeday[data_key[x]]+","
+                }else if(data_key[x]== "terminalId"){
+                    msj += "La Terminal ID ="+closeday[data_key[x]]+", "
+                }
+            }
+            showAlerts("Cierre de caja: "+msj+" Procede a Cerrar Caja.","alert-success","elementsAlertInfo");
+        
+        }else {
+            showAlerts("- No se pudo generar el cierre del día.","alert-danger","elementsAlertInfo");
 
+        }
+    } catch (error) {
+        showAlerts("- "+error,"alert-warning","elementsAlertInfo");
+        await salidacatch();
+    }
+}
 // ejecutamos las demas funciones sin dejar que el usuario de conecte al agente y al pos
 async function llamadoDeAcciones(caseUse, id_btn){
     try{
@@ -265,16 +288,16 @@ async function refundTransbank(){
         let refundPos = await Transbank.POS.refund(numberOperationPos);
         if (refundPos !=null){
             if(refundPos.responseCode === 0){
-                console.log("- Anulación: "+refundPos);
+                showAlerts("- Anulación: "+refundPos,"alert-success","elementsAlertRefund");
             }else{
-                tablaErrorsResponse(refundPos.responseCode);
+                showAlerts("- Anulacion Denegada ","alert-danger","elementsAlertRefund");
             }
         } else{
             console.log("La anulción no se pudo llevar acabo.");
         }
         
     }catch(error){
-        console.log(error);
+        showAlerts("- Error: "+error,"alert-warning","elementsAlertRefund");
         await salidacatch();
     }
 }

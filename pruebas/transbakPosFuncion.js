@@ -453,11 +453,11 @@ async function LastSaleTransbank(){
             }
             printConsoleLog(msj,true);
         } else {
-            printConsoleLog("- No se pudo encontrar la última venta.");
+            showAlerts("- No se pudo encontrar la última venta.","alert-danger","elementsAlertInfo");
         }
         
-    } catch (error) {
-        printConsoleLog("- "+error);        
+    } catch (error) { 
+        showAlerts("- "+error,"alert-warning","elementsAlertInfo");
         await salidacatch();
     }
 }
@@ -467,7 +467,7 @@ async function CloseDayTransbank(){
         const closeday = await Transbank.POS.closeDay();
         printConsoleLog("- Cierre de día: ");
         if (closeday != null){
-            var msj = "     ";
+            var msj = "- Cierre de día: ";
             let data_key = Object.keys(closeday); // Genera un array con las keys del diccionario
             for (let x=0 ; x < data_key.length; x++){
                 if(data_key[x]== "terminalId"){
@@ -476,13 +476,14 @@ async function CloseDayTransbank(){
                     msj += "Con código de comercio ="+closeday[data_key[x]]+", Procede a Cerrar Caja."
                 }
             }
-            printConsoleLog(msj,true);
+            showAlerts(msj,"alert-success","elementsAlertInfo");
         
         }else {
-            printConsoleLog("- No se pudo generar el cierre del día.");
+            showAlerts("- No se pudo generar el cierre del día.","alert-danger","elementsAlertInfo");
+
         }
     } catch (error) {
-        printConsoleLog("- "+error);
+        showAlerts("- "+error,"alert-warning","elementsAlertInfo");
         await salidacatch();
     }
 }
