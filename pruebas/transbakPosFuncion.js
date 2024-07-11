@@ -68,12 +68,65 @@ var responseCodesPos = {
 
 // funcion para agregar label al html en consola
 async function printConsoleLog(texto,fecha_disable=false ){
+    // Función para escribir por pantalla los resultados
+    let console_log = document.getElementById("console_log");
+    let select_label = console_log.querySelectorAll("label");
+    let contador = select_label.length ? select_label.length : 0;
+
+    let textNode = fecha_disable 
+        ? document.createTextNode(texto)
+        : document.createTextNode(new Date().toLocaleString() + " " + texto);
+
+    // Crear un nuevo label
+    const label = document.createElement("label");
+    label.id = contador;
+    label.appendChild(textNode);
+
+    // Crear un salto de línea (br) y añadirlo antes del nuevo label
+    const br = document.createElement("br");
+
+    // Añadir el salto de línea y el nuevo label al principio del div
+    console_log.prepend(br);
+    console_log.prepend(label);
+
+    // Establecer el estilo del nuevo label
+    label.style.backgroundColor = 'yellow';
+
+    // Establecer el estilo de los otros labels
+    let labels = console_log.querySelectorAll("label");
+    labels.forEach((lbl, index) => {
+        if (index === 0) {
+            lbl.style.backgroundColor = 'yellow'; // Fondo brillante para el nuevo
+        } else if (index === 1) {
+            lbl.style.backgroundColor = '#f9f993'; // Fondo menos intenso para el segundo
+        } else if (index === 2) {
+            lbl.style.backgroundColor = '#fdfdca'; // Fondo menos intenso para el segundo
+        }else {
+            lbl.style.backgroundColor = '#fff'; // Fondo menos intenso para el resto
+            console.log
+        }
+    });
+
+    // Asegurarse de que los saltos de línea se apliquen correctamente
+    let brs = console_log.querySelectorAll("br");
+    if (brs.length > labels.length) {
+        // Si hay más saltos de línea que labels, eliminar los extra
+        brs.forEach((br, index) => {
+            if (index >= labels.length) {
+                console_log.removeChild(br);
+            }
+        });
+    }
+}
+// funcion para agregar label al html en consola
+async function printConsoleLog2(texto,fecha_disable=false ){
     // funcion para escribir por pantalla los resultados
     let console_log =  document.getElementById("console_log");
-    if(console_log.length == null){
+    let select_label = console_log.querySelectorAll("label");
+    if(select_label.length == null){
         var contador = 0;
     }else {
-        var contador = console_log.length;
+        var contador = select_label.length;
     }
     if (fecha_disable){
         var textNode = document.createTextNode(texto);
@@ -87,10 +140,10 @@ async function printConsoleLog(texto,fecha_disable=false ){
     label.appendChild(textNode);
     console_log.appendChild(br);
     console_log.appendChild(label);
-    // var divOrder = $("#console_log > div").sort(function (a, b) {
-    //     return $(a).data("id") > $(b).data("id");
-    // });
-    // $("#console_log").html(divOrder);
+    var divOrder = $("#console_log > label").sort(function (a, b) {
+        return $(a).data("id") < $(b).data("id");
+    });
+    $("#console_log").html(divOrder);
 }
 // verificamos que el agente este desplegado y nos conectamos
 async function ConnectAgent(){
@@ -118,7 +171,7 @@ async function ConnectAgent(){
     }    
 }
 // buscamos el puerto del pos y los conectamos 
-async function ConectarTransbankPosOpenPort(){
+async function ConnectTransbankPosOpenPort(){
     // Solo conectamos el puerto si esta disponible.
     try{
         let isConnect = Transbank.POS.isConnected;
@@ -146,13 +199,13 @@ async function ConectarTransbankPosOpenPort(){
                     return false
                 }
             }
-            
         }
     } catch (error){
         console.log("puerto",error);
         if (error === "ACK has not been received in 2000 ms."){
-            printConsoleLog("  - Problema con la comunicación entre el agente y el dispositivo POS.", true);
             printConsoleLog("  - Renicie el agente y/o reconecte el POS.", true);
+            printConsoleLog("  - Problema con la comunicación entre el agente y el dispositivo POS.", true);
+            salidacatch();
         }//else if (error === "Another connect command was already sent and it is still waiting"){
         //     // await ConnectAgent();
         //     // await closePortTransbanck();
@@ -240,13 +293,6 @@ async function GetPortTransbank(){
                 msj += (i+1)+".-"
                 for ( x=0 ; x < data_key.length; x++){
                     msj += data_key[x]+"="+data_value[data_key[x]]+", ";
-                    if(data_key[x] === "COM"){
-                        msj_port += data_value[data_key[x]];
-                        let option = document.createElement("option"); 
-                            option.value = msj_port;
-                            option.text = msj_port;
-                        select.add(option);
-                    }
                 }
                 printConsoleLog(msj,true);
             }
@@ -260,41 +306,7 @@ async function GetPortTransbank(){
         await salidacatch();
     }
 }
-// Cargamos llaves al pos para que este sincronizado con transbank
-async function LoadKeyTransbank(){
-    //Cabe destacar que por cada venta tambien se sincronizan 
-    // las llaves por lo tanto el comando se puede utilizar en una apertura de caja y si se desea comprobar el estado de conexión 
-    // con los servidores. 
-    try {
-        const loadKey = await Transbank.POS.loadKeys();
-        console.log(loadKey);
-        if (loadKey != null ){
-            if (loadKey["responseCode"] === 0){
-                var msj = "";
-                console.log("gola ",loadKey["responseCode"]);
-                let data_key = Object.keys(loadKey); // Genera un array con las keys del diccionario
-                for ( x=0 ; x < data_key.length; x++){
-                    if (data_key[x] === "commerceCode"){
-                        msj += "Código de comercio: "+loadKey[data_key[x]]+", ";
-                    } else if(data_key[x] === "terminalId"){
-                        msj += "Terminal ID ="+loadKey[data_key[x]]+".";
-                    }
-                }
-                let out = "- Llaves Cargadas Exitosamente: "+msj;
-                printConsoleLog(out);
-            }else {
-                printConsoleLog("- No se pudo Cargar las llaves.");
-                tablaErrorsResponse(parseInt(loadKey["responseCode"]));
-            }
-        } else {
-            printConsoleLog("- No se pudo Cargar las llaves.");
-        }
-    } catch (error) {
-        console.log(error);
-        printConsoleLog("- "+error);
-        await salidacatch();
-    }
-}
+
 // funcion poll para ver si se pueden enviar comando al pos     
 async function PollTransbank(){
     try{
@@ -616,8 +628,6 @@ async function GetDetailsTransbankPrint(){
 // generamos la venta sacando los datos de los input correspondientes
 async function TransbankVenta() {
     try {   
-
-
         let montoPos = $("#montoPos").val();
         let ticketPos = $("#ticketPos").val();
         // Convertir a números
@@ -1241,7 +1251,7 @@ async function llamadoDeAcciones(llamada, id_btn){
             await ConnectAgent();
             const isPosConnect = await Transbank.POS.getPortStatus();
             if (isPosConnect["connected"] === false){
-                let isPort = await ConectarTransbankPosOpenPort();
+                let isPort = await ConnectTransbankPosOpenPort();
                 if (isPort === true){
                     //si la funcion se demora mucho bugea al agente 
                     // Agregar registros para cada llamada específica
@@ -1284,13 +1294,9 @@ async function llamadoDeAcciones(llamada, id_btn){
                     }
                     await closePortTransbanck();
                     await disconnectTransbankAgente();
-                } else {
-                    await disconnectTransbankAgente();
-
-                }
+                } 
             }else{
                 printConsoleLog("- El POS se encuentra en uso.");
-                await disconnectTransbankAgente();
             }
         } else{
             printConsoleLog("- El agente se encuentra en uso.");
