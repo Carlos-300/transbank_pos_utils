@@ -66,32 +66,83 @@ var responseCodesPos = {
     95: "Error al Imprimir TASA"
     };
 
-async function CloseDayTransbank(){
-    try{
-        const closeday = await Transbank.POS.closeDay();
-        if (closeday != null){
-            var msj = " ";
-            let data_key = Object.keys(closeday); // Genera un array con las keys del diccionario
-            for (let x=0 ; x < data_key.length; x++){
-                if(data_key[x]== "commerceCode"){
-                    msj += "Con código de comercio ="+closeday[data_key[x]]+","
-                }else if(data_key[x]== "terminalId"){
-                    msj += "La Terminal ID ="+closeday[data_key[x]]+", "
-                }
-            }
-            showAlerts("Cierre de caja: "+msj+" Procede a Cerrar Caja.","alert-success","elementsAlertInfo");
-        
-        }else {
-            showAlerts("- No se pudo generar el cierre del día.","alert-danger","elementsAlertInfo");
 
-        }
-    } catch (error) {
-        showAlerts("- "+error,"alert-warning","elementsAlertInfo");
-        await salidacatch();
+async function restartAgent(){
+    try{
+       
+        await ConnectAgent();
+        await closePortTransbanck();
+        await disconnectTransbankAgente();
+        showAlerts("Restart Completado.","alert-success", "elementsAlertStatus");
+
+    }catch (error){
+        console.log("problema con el restart: "+error);
     }
 }
+
+function showAlerts(text, tipeAlert, idContainerAlerts) {
+
+    var containerAlert = document.getElementById(idContainerAlerts);
+    var listAlert = ["alert-success","alert-danger","alert-warning"];
+    // hide all the visible alerts
+    listAlert.forEach(alertclasshide => {
+        var allAlertshide = document.querySelectorAll("."+alertclasshide);
+        var alertSelecthide = Array.from(allAlertshide)
+        alertSelecthide.forEach((elementohide)=>{
+            elementohide.style.display = "none";
+            
+        });
+    });
+    //select one alert for show focus
+    listAlert.forEach(alertclass => {
+        var allAlerts = containerAlert.querySelectorAll("."+alertclass);
+        var alertSelect = Array.from(allAlerts)
+        alertSelect.forEach((elemento)=>{
+            if (elemento.className.includes(tipeAlert)){
+                elemento.innerHTML = text;
+                elemento.style.display = "inline-block";
+                elemento.scrollIntoView({ behavior: 'smooth' });
+            }else{
+                elemento.style.display = "none";
+            }
+        });
+    });
+}
+
+function validateNumberInput(dato, salida){
+    const regex = /^[0-9]*$/;
+    let isNum = regex.test(dato);
+    if (dato.length === 0){
+        alert("- Ingrese el "+salida+".");
+        return false
+    }
+    if (isNum === false){
+        alert("- Ingresar Solo Numeros en "+salida+".");
+        return false
+    }
+    return true
+}
+
+
+function callPrivate(){
+    var isConnectPrivate = ConnectAgent();
+    if(!isConnectPrivate){
+        return
+    }
+    var isPortConnectPrivate = ConnectTransbankPosOpenPort();
+    if(!isPortConnectPrivate){
+        return
+    }
+    transbankVentasDetalle();
+
+    closePortTransbanck();
+    disconnectTransbankAgente();
+}
+
+
+
 // ejecutamos las demas funciones sin dejar que el usuario de conecte al agente y al pos
-async function llamadoDeAcciones(caseUse, id_btn){
+async function callFunctionTransbank(caseUse, id_btn){
     try{
         var nombre =  document.getElementById(id_btn).innerHTML;
         document.getElementById(id_btn).disabled = true;
@@ -136,9 +187,11 @@ async function llamadoDeAcciones(caseUse, id_btn){
                 } 
             }else{
                 console.log("- El POS se encuentra en uso.");
+                showAlerts("- El POS se encuentra en uso.","alert-warning","elementsAlertStatus");
             }
         } else{
             console.log("- El agente se encuentra en uso.");
+            showAlerts("- El agente se encuentra en uso.","alert-warning","elementsAlertStatus");
         }
     }catch (error){
         console.log("Funcion principal "+error);
@@ -151,27 +204,46 @@ async function llamadoDeAcciones(caseUse, id_btn){
     
 }
 
-function showAlerts(text, tipeAlert, idContainerAlerts) {
 
-    var containerAlert = document.getElementById(idContainerAlerts);
-    var listAlert = ["alert-success","alert-danger","alert-warning"];
-    listAlert.forEach(alertclass => {
-        var allAlerts = containerAlert.querySelectorAll("."+alertclass);
-        var alertSelect = Array.from(allAlerts)
-        alertSelect.forEach((elemento)=>{
-            if (elemento.className.includes(tipeAlert)){
-                elemento.innerHTML = text;
-                elemento.style.display = "inline-block";
-            }else{
-                elemento.style.display = "none";
-            }
-        });
-    });
-}
+
 
 
 // verificamos que el agente este desplegado y nos conectamos
-async function ConnectAgent(){
+function ConnectAgent(){
+    //Solo conectamos el agent preguntando si esta desplegado o no
+    try{
+        var isConnectPrivate;
+        let isConnect = Transbank.POS.isConnected;
+        let response = fetch("https://localhost:8090/");
+        if (response){
+            //console.log("online");
+            //El Agente se encuentra desplegado
+            if (isConnect != true){
+                let connect = Transbank.POS.connect();
+                console.log("- Agente Conectado Correctamente."); 
+                isConnectPrivate = true;
+                return isConnectPrivate
+            } else {
+                // console.log("- Ya estas Conectado al Agente.");   
+                showAlerts("- Ya estas Conectado al Agente.","alert-warning","elementsAlertStatus");
+                isConnectPrivate = false;
+                return isConnectPrivate
+            }
+
+        } 
+    } catch(error){
+        //console.log("Offline");
+        //El agente no se encuentra despleagado
+        // console.log("- El Agente no se encuentra Despeglado.");
+        showAlerts("- El Agente no se encuentra Despeglado.","alert-danger","elementsAlertStatus");
+        isConnectPrivate = false;
+        return isConnectPrivate
+
+    }    
+}
+
+// verificamos que el agente este desplegado y nos conectamos
+async function ConnectAgentcall(){
     //Solo conectamos el agent preguntando si esta desplegado o no
     try{
         let isConnect = Transbank.POS.isConnected;
@@ -183,20 +255,71 @@ async function ConnectAgent(){
                 let connect = await Transbank.POS.connect();
                 console.log("- Agente Conectado Correctamente."); 
             } else {
-                console.log("- Ya estas Conectado al Agente.");   
+                // console.log("- Ya estas Conectado al Agente.");   
+                showAlerts("- Ya estas Conectado al Agente.","alert-warning","elementsAlertStatus");
             }
         } 
     } catch(error){
         //console.log("Offline");
         //El agente no se encuentra despleagado
-        console.log("- El Agente no se encuentra Despeglado.");
-        showAlerts("Error al ejecutar la venta: "+error,"alert-warning","elementsAlertVenta");
+        // console.log("- El Agente no se encuentra Despeglado.");
+        showAlerts("- El Agente no se encuentra Despeglado.","alert-danger","elementsAlertStatus");
 
     }    
 }
+
 // buscamos el puerto del pos y los conectamos 
-async function ConnectTransbankPosOpenPort(){
-    // Solo conectamos el puerto si esta disponible.
+function ConnectTransbankPosOpenPort(){
+    try{
+        let isConnect = Transbank.POS.isConnected;
+        if (isConnect){
+            // const getPort = Transbank.POS.getPorts();  
+            Transbank.POS.getPorts().then((getPort)=>{
+                //select 
+                if (getPort.length != 0 ){
+                    let valuePortCom;
+                    for(let i=0; i<getPort.length; i++){
+                        let data_key = Object.keys(getPort[i]); // Genera un array con las keys del diccionario
+                        let data_value = getPort[i];
+                        for ( let x=0 ; x < data_key.length; x++){
+                            if(data_key[x] === "path"){
+                                valuePortCom = data_value[data_key[x]];
+                                break;
+                            }
+                        }
+                    }
+                    // let openPort = Transbank.POS.openPort(valuePortCom);  
+                    Transbank.POS.openPort(valuePortCom).then((openPort)=>{
+                        if (openPort){
+                            console.log("- Conectado con el POS.");   
+                            return true
+                        }else {
+                            console.log("- No se  pudo establecer concexión con el POS."); 
+                            showAlerts("- No se  pudo establecer concexión con el POS.","alert-warning","elementsAlertStatus");
+                            return false
+                        }
+                    });  
+                   
+                } else {
+                    showAlerts("- No se encontro ni un POS Conectado.","alert-warning","elementsAlertStatus");
+                    disconnectTransbankAgente();
+                    return false
+                }
+            });  
+            
+        }
+    } catch (error){
+        showAlerts(error,"alert-danger","elementsAlertStatus");
+        console.log("puerto",error);
+        if (error === "ACK has not been received in 2000 ms."){
+            console.log("  - Renicie el agente y/o reconecte el POS." );
+            console.log("  - Problema con la comunicación entre el agente y el dispositivo POS.");
+        }
+        return false
+    }
+}
+// buscamos el puerto del pos y los conectamos 
+async function ConnectTransbankPosOpenPortcall(){
     try{
         let isConnect = Transbank.POS.isConnected;
         if (isConnect){
@@ -220,32 +343,31 @@ async function ConnectTransbankPosOpenPort(){
                     return true
                 }else {
                     console.log("- No se  pudo establecer concexión con el POS."); 
+                    showAlerts("- No se  pudo establecer concexión con el POS.","alert-warning","elementsAlertStatus");
                     return false
                 }
+            } else {
+                showAlerts("- No se encontro ni un POS Conectado.","alert-warning","elementsAlertStatus");
+                await disconnectTransbankAgente();
+                return false
             }
         }
     } catch (error){
+        showAlerts(error,"alert-danger","elementsAlertStatus");
         console.log("puerto",error);
         if (error === "ACK has not been received in 2000 ms."){
-            console.log("  - Renicie el agente y/o reconecte el POS.", true);
-            console.log("  - Problema con la comunicación entre el agente y el dispositivo POS.", true);
-            salidacatch();
-        }//else if (error === "Another connect command was already sent and it is still waiting"){
-        //     // await ConnectAgent();
-        //     // await closePortTransbanck();
-        //     // await disconnectTransbankAgente();
-        //     console.log("     - Reconectando y liberando puerto del agente.");
-        //     // console.log("   Renicie el agente y desconecte el puerto", true);
-        // }
+            console.log("  - Renicie el agente y/o reconecte el POS." );
+            console.log("  - Problema con la comunicación entre el agente y el dispositivo POS.");
+        }
         return false
     }
 }
 // cerramos la conexion con el agente
-async function disconnectTransbankAgente(){
+function disconnectTransbankAgente(){
     try{
         let isConnect = Transbank.POS.isConnected;
         if(isConnect === true){
-            const disconnect = await Transbank.POS.disconnect();
+            const disconnect =  Transbank.POS.disconnect();
             if (disconnect != null){
                 // console.log("- Desconectado del Agente Correctamente.");
                 console.log("- Desconectado del Agente Correctamente.");
@@ -261,11 +383,11 @@ async function disconnectTransbankAgente(){
     }
 }  
 // cerramos el puerto donde se conecto el POS
-async function closePortTransbanck(){
+function closePortTransbanck(){
     try{
-        let isPosConnect = await Transbank.POS.getPortStatus();
+        let isPosConnect = Transbank.POS.getPortStatus();
         if (isPosConnect["connected"] === true){
-            let closePort = await Transbank.POS.closePort();
+            let closePort = Transbank.POS.closePort();
             if(closePort === true){
                 console.log("- Desconectado del POS Correctamente.");
             }else {
@@ -279,26 +401,32 @@ async function closePortTransbanck(){
     }catch (error){
         // console.log(error);
         console.log("close port "+ error);
+        showAlerts("- "+error,"alert-danger","elementsAlertStatu");
+        
     }
 }
 async function refundTransbank(){
     try{
-      
-        let numberOperationPos = $("#numberOperation").val();
+        let numberOperationPos = $("#numeroOperation").val();
+        let isValueOperation = validateNumberInput(numberOperationPos , "Nº de Operación");
+        if (!isValueOperation){
+            return
+        }
         let refundPos = await Transbank.POS.refund(numberOperationPos);
+
         if (refundPos !=null){
             if(refundPos.responseCode === 0){
                 showAlerts("- Anulación: "+refundPos,"alert-success","elementsAlertRefund");
             }else{
-                showAlerts("- Anulacion Denegada ","alert-danger","elementsAlertRefund");
+                tablaErrorsResponse(parseInt(refundPos.responseCode));
+                // showAlerts("- Anulacion Denegada ","alert-danger","elementsAlertRefund");
             }
         } else{
-            console.log("La anulción no se pudo llevar acabo.");
+            showAlerts("- La anulción no se pudo llevar acabo.","alert-warning","elementsAlertRefund");
         }
-        
     }catch(error){
-        showAlerts("- Error: "+error,"alert-warning","elementsAlertRefund");
-        await salidacatch();
+        showAlerts("- "+error,"alert-warning","elementsAlertRefund");
+
     }
 }
 // Obtenemos una lista de puertos disponibles donde estan los pos
@@ -326,7 +454,6 @@ async function GetPortTransbank(){
     } catch (error) {
         let msj = "- "+error;
         console.log(msj);
-        await salidacatch();
     }
 }
 // Cargamos llaves al pos para que este sincronizado con transbank
@@ -336,11 +463,9 @@ async function LoadKeyTransbank(){
     // con los servidores. 
     try {
         const loadKey = await Transbank.POS.loadKeys();
-        console.log(loadKey);
         if (loadKey != null ){
             if (loadKey["responseCode"] === 0){
                 var msj = "";
-                console.log("gola ",loadKey["responseCode"]);
                 let data_key = Object.keys(loadKey); // Genera un array con las keys del diccionario
                 for ( x=0 ; x < data_key.length; x++){
                     if (data_key[x] === "commerceCode"){
@@ -356,12 +481,12 @@ async function LoadKeyTransbank(){
                 tablaErrorsResponse(parseInt(loadKey["responseCode"]));
             }
         } else {
-            console.log("- No se pudo Cargar las llaves.");
+            console.log("- Problema al cargar llaves.");
+            
         }
     } catch (error) {
         console.log(error);
         console.log("- "+error);
-        await salidacatch();
     }
 }
 // generamos el detales de ventas del día (se imprime en el pos)
@@ -370,25 +495,36 @@ async function GetDetailsTransbankPrint(){
         //getDetails(True) =>  print POS
         //solo se puede pedir una vez despues de una acción 
         //Esto solo devuelve un Objeto vacío
-        let details = await Transbank.POS.getDetails(true);
-        if (details != null) {
-            console.log("- Lista de ventas: Emitida en le POS.");
+        const details = await Transbank.POS.getDetails(true);
+
+        if (details === true) {
+            // console.log("- Lista de ventas: Emitida en le POS.");
+            showAlerts("- Lista de ventas: Emitida en le POS.","alert-success","elementsAlertInfo");
         }else {
-            console.log("- No se pude generar el detalle de las ventas.");
+            // tablaErrorsResponse(parseInt(details.responseCode));
+            // console.log("- No se pude generar el detalle de las ventas.");
+            showAlerts("- No se pudo emitir el detalle de las ventas en el POS.","alert-warning","elementsAlertInfo");
         }
     } catch (error) {
         console.log("- "+error);
-        await salidacatch();
+        showAlerts("- Error Detalle POS: "+error ,"alert-danger","elementsAlertInfo");
     }
 }
+
+
 // generamos la venta sacando los datos de los input correspondientes
 async function TransbankVenta() {
     try {   
         let montoPos = $("#montoPos").val();
         let ticketPos = $("#ticketPos").val();
+        let isValuemonto = validateNumberInput(montoPos , "Monto");
+        if (!isValuemonto) {
+            return;
+        }
         // Convertir a números
         montoPos = parseInt(montoPos);
         ticketPos = parseInt(ticketPos);
+     
         // identificando tablas
         let divtableSuccess =  document.getElementById("elementTableSuccess");
         let divtableDanger =  document.getElementById("elementTableDanger");
@@ -409,7 +545,7 @@ async function TransbankVenta() {
                     setTableExitosa(result); // llamaos a crear los elementos
                 }
                 // Entregamos una alerta 
-                showAlerts("¡¡Venta Completada Exitosamente!!.","alert-success","elementsAlertVenta");
+                showAlerts("¡¡Venta Completada Exitosamente!!.","alert-success","elementsAlertSale");
 
             }else {
                 if (divtableSuccess.style.display === "block"){
@@ -422,8 +558,9 @@ async function TransbankVenta() {
                     setTableFallida(result);
                 }
                 // tablaErrorsResponse(parseInt(result.responseCode));
+                // tablaErrorsResponse(parseInt(result.responseCode));
                 // setTableFallida(result)
-                showAlerts("¡Fallo al intentar la venta!.","alert-danger","elementsAlertVenta");
+                showAlerts("¡Fallo al intentar la venta!.","alert-danger","elementsAlertSale");
 
 
             }
@@ -431,237 +568,284 @@ async function TransbankVenta() {
             console.log('Ocurrió un error inesperado', err);
         });
     } catch (error) {
-        console.log('Error:', error);
         console.log("- Ejecutar Venta: "+error);
-        showAlerts("Error al ejecutar la venta: "+error,"alert-warning","elementsAlertVenta");
+        showAlerts("Error al ejecutar la venta: "+error,"alert-warning","elementsAlertSale");
 
 
-        await salidacatch();
+    }
+}
+
+    
+async function CloseDayTransbank(){
+    try{
+        const closeday = await Transbank.POS.closeDay();
+        console.log(closeday);
+        if (closeday != null){
+            if (closeday.responseCode === 0){
+                var msj = " ";
+                let data_key = Object.keys(closeday); // Genera un array con las keys del diccionario
+                for (let x=0 ; x < data_key.length; x++){
+                    if(data_key[x]== "commerceCode"){
+                        msj += "Con código de comercio ="+closeday[data_key[x]]+","
+                    }else if(data_key[x]== "terminalId"){
+                        msj += "La Terminal ID ="+closeday[data_key[x]]+", "
+                    }
+                }
+                showAlerts("Cierre de caja: "+msj+" Procede a Cerrar Caja.","alert-success","elementsAlertInfo");
+            }else {
+                tablaErrorsResponse(parseInt(closeday.responseCode));
+            }
+            
+        }else {
+            showAlerts("- Elementos no encontrados.","alert-danger","elementsAlertInfo");
+
+        }
+    } catch (error) {
+        showAlerts("- "+error,"alert-warning","elementsAlertInfo");
     }
 }
 // generamos tabla con las ventas del día a detalle
-async function transbankVentasDetalle() {
+function transbankVentasDetalle(){
     try {
-        let result2 = await Transbank.POS.getDetails(false);
-        console.log(result2);
-        var table = document.getElementById("table_venta_detalle");
-        //antes de cargar la tabla eliminamos los elementos antiguos.
-        deleteElementsTable('table_venta_detalle'); 
-        for (let y = 0; y <result2.length; y++) {
-            let data_key = Object.keys(result2[y]);
-            let data_value = result2[y];
-            if (data_value.length === 0){
-                console.log("- No Existen Registros de Ventas para mostrar.");
-                break
+        // let result2 = Transbank.POS.getDetails(false);
+        Transbank.POS.getDetails(false).then((result2)=>{
+            console.log(result2);
+            if (result2.length === 0){
+                showAlerts("- No existen ventas para mostrar.", "alert-warning", "elementsAlertInfo")
+                return
             }
-            //head 
-            var thead = table.querySelector('thead');
-            var state = thead.querySelector('tr');
-            if (state === null){
-                console.log(data_value);
-                var iskeySharesNumber = "sharesNumber" in data_value;
-                console.log(iskeySharesNumber);
-                const row1 = document.createElement("tr");
-                for (let i = 0; i <data_key.length; i++) {
-                    const th = document.createElement("th");
-                    th.setAttribute("scope", "col");
+            let divtabledetalle = document.getElementById("elementTableDetalle");
+            let divtablelastsale = document.getElementById("elementTableLastSale");
+            if (divtablelastsale.style.display === "block"){
+                divtablelastsale.style.display = "none";
+            }
+            divtabledetalle.style.display = "block";
+            console.log(result2);
+            var table = document.getElementById("tableDetalle");
+            //antes de cargar la tabla eliminamos los elementos antiguos.
+            deleteElementsTable('tableDetalle'); 
+            for (let y = 0; y <result2.length; y++) {
+                console.log("primer element: ",result2[y]);
+                let data_key = Object.keys(result2[y]);
+                let data_value = result2[y];
+                if (data_value.length === 0){
+                    console.log("- No Existen Registros de Ventas para mostrar.");
+                    break
+                }
+                //head 
+
+                let divtabledetalle = document.getElementById("elementTableDetalle");
+                divtabledetalle.style.display = "block";
+                var thead = table.querySelector('thead');
+                var state = thead.querySelector('tr');
+                if (state === null){
+                    console.log(data_value);
+                    var iskeySharesNumber = "sharesNumber" in data_value;
+                    console.log(iskeySharesNumber);
+                    const row1 = document.createElement("tr");
+                    for (let i = 0; i <data_key.length; i++) {
+                        const th = document.createElement("th");
+                        th.setAttribute("scope", "col");
+                        let bandera = false;
+                        let msj = "";
+                        if(data_key[i] === "functionCode"){
+                            msj = "Código de función";
+                            bandera = true;
+                        }else if(data_key[i] === "responseCode"){
+                            msj = "código de respuesta";
+                            bandera = true;
+                        }else if(data_key[i] === "commerceCode"){
+                            msj = "código de comercio";
+                            bandera = true;
+                        }else if(data_key[i] === "terminalId"){
+                            msj = "identificador de terminal";
+                            bandera = true;
+                        }else if(data_key[i] === "responseMessage"){
+                            msj = "mensaje de respuesta";
+                            bandera = true;
+                        }else if(data_key[i] === "successful"){
+                            msj = "exitosa";
+                            bandera = true;
+                        }else if(data_key[i] === "ticket"){
+                            msj = "boleto";
+                            bandera = true;
+                        }else if(data_key[i] === "amount"){
+                            msj = "Monto";
+                            bandera = true;
+                        }else if(data_key[i] === "authorizationCode"){
+                            msj = "Código de Autorización";
+                            bandera = true;
+                        }else if(data_key[i] === "realDate"){
+                            msj = "Fecha";
+                            bandera = true;
+                        }else if(data_key[i] === "employeeId"){
+                            msj = "ID de empleado";
+                            bandera = true;
+                        }else if(data_key[i] === "sharesNumber"){
+                            msj = "Número de cuotas";
+                            bandera = true;
+                        }else if(data_key[i] === "sharesAmount"){
+                            msj = "Monto de la cuota";
+                            bandera = true;
+                        }else if(data_key[i] === "last4Digits"){
+                            msj = "Últimos 4 dígitos";
+                            bandera = true;
+                        }else if(data_key[i] === "operationNumber"){
+                            msj = "número de operación";
+                            bandera = true;
+                        }else if(data_key[i] === "cardType"){
+                            msj = "tipo de tarjeta";
+                            bandera = true;
+                        }else if(data_key[i] === "accountingDate"){
+                            msj = "Fecha de contabilidad";
+                            bandera = true;
+                        }else if(data_key[i] === "cardBrand"){
+                            msj = "Tarjeta";
+                            bandera = true;
+                        }else if(data_key[i] === "commerceProviderCode"){
+                            msj = "Código de proveedor";
+                            bandera = true;
+                        }else if(data_key[i] === "accountNumber"){
+                            msj = "número de cuenta";
+                            bandera = true;
+                        }else if(data_key[i] === "realTime"){
+                            msj = "Hora";
+                            bandera = true;
+                        }
+                        if (bandera === true){
+                            const textth = document.createTextNode(msj);
+                            th.appendChild(textth);
+                            row1.appendChild(th);
+                            bandera = false;
+                        }
+                    }
+                    thead.appendChild(row1);
+                }   
+                //body 
+                let tbody =  table.querySelector("tbody");
+                let row2 = document.createElement("tr");
+                for (let x = 0; x <data_key.length; x++) {
+                    const td = document.createElement("td");
                     let bandera = false;
                     let msj = "";
-                    if(data_key[i] === "functionCode"){
-                        msj = "Código de función";
+                    if(data_key[x] === "functionCode"){
                         bandera = true;
-                    }else if(data_key[i] === "responseCode"){
-                        msj = "código de respuesta";
+                    }else if(data_key[x] === "responseCode"){
                         bandera = true;
-                    }else if(data_key[i] === "commerceCode"){
-                        msj = "código de comercio";
+                    }else if(data_key[x] === "commerceCode"){
                         bandera = true;
-                    }else if(data_key[i] === "terminalId"){
-                        msj = "identificador de terminal";
+                    }else if(data_key[x] === "terminalId"){
                         bandera = true;
-                    }else if(data_key[i] === "responseMessage"){
-                        msj = "mensaje de respuesta";
+                    }else if(data_key[x] === "responseMessage"){
                         bandera = true;
-                    }else if(data_key[i] === "successful"){
-                        msj = "exitosa";
+                    }else if(data_key[x] === "successful"){
                         bandera = true;
-                    }else if(data_key[i] === "ticket"){
-                        msj = "boleto";
+                    }else if(data_key[x] === "ticket"){
                         bandera = true;
-                    }else if(data_key[i] === "amount"){
-                        msj = "Monto";
+                    }else if(data_key[x] === "amount"){
                         bandera = true;
-                    }else if(data_key[i] === "authorizationCode"){
-                        msj = "Código de Autorización";
+                    }else if(data_key[x] === "authorizationCode"){
                         bandera = true;
-                    }else if(data_key[i] === "realDate"){
-                        msj = "Fecha";
+                    }else if(data_key[x] === "realDate"){
                         bandera = true;
-                    }else if(data_key[i] === "employeeId"){
-                        msj = "ID de empleado";
+                    }else if(data_key[x] === "employeeId"){
                         bandera = true;
-                    }else if(data_key[i] === "sharesNumber"){
-                        msj = "Número de cuotas";
+                    }else if(data_key[x] === "sharesNumber"){
                         bandera = true;
-                    }else if(data_key[i] === "sharesAmount"){
-                        msj = "Monto de la cuota";
+                    }else if(data_key[x] === "sharesAmount"){
                         bandera = true;
-                    }else if(data_key[i] === "last4Digits"){
-                        msj = "Últimos 4 dígitos";
+                    }else if(data_key[x] === "last4Digits"){
                         bandera = true;
-                    }else if(data_key[i] === "operationNumber"){
-                        msj = "número de operación";
+                    }else if(data_key[x] === "operationNumber"){
                         bandera = true;
-                    }else if(data_key[i] === "cardType"){
-                        msj = "tipo de tarjeta";
+                    }else if(data_key[x] === "cardType"){
                         bandera = true;
-                    }else if(data_key[i] === "accountingDate"){
-                        msj = "Fecha de contabilidad";
+                    }else if(data_key[x] === "accountingDate"){
                         bandera = true;
-                    }else if(data_key[i] === "cardBrand"){
-                        msj = "Tarjeta";
+                    }else if(data_key[x] === "cardBrand"){
                         bandera = true;
-                    }else if(data_key[i] === "commerceProviderCode"){
-                        msj = "Código de proveedor";
+                    }else if(data_key[x] === "commerceProviderCode"){
                         bandera = true;
-                    }else if(data_key[i] === "accountNumber"){
-                        msj = "número de cuenta";
+                    }else if(data_key[x] === "accountNumber"){
                         bandera = true;
-                    }else if(data_key[i] === "realTime"){
-                        msj = "Hora";
+                    }else if(data_key[x] === "realTime"){
                         bandera = true;
                     }
-                    if (bandera === true){
-                        const textth = document.createTextNode(msj);
-                        th.appendChild(textth);
-                        row1.appendChild(th);
+                    if(bandera === true){
+                        let  data = "";
+                        if (data_key[x] === "cardBrand"){
+                            data = tarjetas[data_value[data_key[x]]];
+                        } else if (data_key[x] === "cardType") {
+                            // CR: Crédito  | DB: Débito
+                            if (data_value[data_key[x]] === "CR"){
+                                data = "Crédito";
+                            }else{
+                                data = "Débito";
+                            }
+                        } else if (data_key[x] === "realDate") {
+                            const fechaString = data_value[data_key[x]];
+                            // Divide el string en partes
+                            const dia = fechaString.slice(0, 2);
+                            const mes = fechaString.slice(2, 4);
+                            const ano = fechaString.slice(4, 8);
+
+                            // Devuelve el formato de fecha completo
+                            data = `${dia}/${mes}/${ano}`;
+
+                        } else if (data_key[x] === "realTime") {
+                            const numeroString = data_value[data_key[x]];
+                            // Divide el string en partes de dos caracteres
+                            const horas = numeroString.slice(0, 2);
+                            const minutos = numeroString.slice(2, 4);
+                            const segundos = numeroString.slice(4, 6);
+
+                            // Devuelve el formato de hora completo
+                            data = `${horas}:${minutos}:${segundos}`;
+                        }else if (data_key[x] === "accountingDate"){
+                            //Se utiliza solo con ventas Débito (Opcional)
+                            if (data_value["cardType"] === "DB"){
+                                data = data_value[data_key[x]];
+                            } else {
+                                data = "--";
+                            }
+                        } else if (data_key[x] === "accountNumber"){
+                            //Se utiliza solo con ventas Débito (Opcional)
+                            if (data_value["cardType"] === "DB"){
+                                data = data_value[data_key[x]];
+                            } else{
+                                data = "--";
+                            }
+                        }else if (data_key[x] === "sharesNumber"){
+                            //Se utiliza solo con ventas Débito (Opcional)
+                            if (data_value["cardType"] === "CR"){
+                                data = data_value[data_key[x]];
+                            } else {
+                                data = "--";
+                            }
+                        } else if (data_key[x] === "sharesAmount"){
+                            //Se utiliza solo con ventas Débito (Opcional)
+                            if (data_value["cardType"] === "CR"){
+                                data = data_value[data_key[x]];
+                            } else{
+                                data = "--";
+                            }
+                        }else {
+                            data = data_value[data_key[x]];
+                        }
+                        const textNode = document.createTextNode(data);
+                        td.appendChild(textNode);
+                        row2.appendChild(td);
                         bandera = false;
                     }
-                }
-                thead.appendChild(row1);
-            }   
-            //body 
-            let tbody =  table.querySelector("tbody");
-            let row2 = document.createElement("tr");
-            for (let x = 0; x <data_key.length; x++) {
-                const td = document.createElement("td");
-                let bandera = false;
-                let msj = "";
-                if(data_key[x] === "functionCode"){
-                    bandera = true;
-                }else if(data_key[x] === "responseCode"){
-                    bandera = true;
-                }else if(data_key[x] === "commerceCode"){
-                    bandera = true;
-                }else if(data_key[x] === "terminalId"){
-                    bandera = true;
-                }else if(data_key[x] === "responseMessage"){
-                    bandera = true;
-                }else if(data_key[x] === "successful"){
-                    bandera = true;
-                }else if(data_key[x] === "ticket"){
-                    bandera = true;
-                }else if(data_key[x] === "amount"){
-                    bandera = true;
-                }else if(data_key[x] === "authorizationCode"){
-                    bandera = true;
-                }else if(data_key[x] === "realDate"){
-                    bandera = true;
-                }else if(data_key[x] === "employeeId"){
-                    bandera = true;
-                }else if(data_key[x] === "sharesNumber"){
-                    bandera = true;
-                }else if(data_key[x] === "sharesAmount"){
-                    bandera = true;
-                }else if(data_key[x] === "last4Digits"){
-                    bandera = true;
-                }else if(data_key[x] === "operationNumber"){
-                    bandera = true;
-                }else if(data_key[x] === "cardType"){
-                    bandera = true;
-                }else if(data_key[x] === "accountingDate"){
-                    bandera = true;
-                }else if(data_key[x] === "cardBrand"){
-                    bandera = true;
-                }else if(data_key[x] === "commerceProviderCode"){
-                    bandera = true;
-                }else if(data_key[x] === "accountNumber"){
-                    bandera = true;
-                }else if(data_key[x] === "realTime"){
-                    bandera = true;
-                }
-                if(bandera === true){
-                    let  data = "";
-                    if (data_key[x] === "cardBrand"){
-                        data = tarjetas[data_value[data_key[x]]];
-                    } else if (data_key[x] === "cardType") {
-                        // CR: Crédito  | DB: Débito
-                        if (data_value[data_key[x]] === "CR"){
-                            data = "Crédito";
-                        }else{
-                            data = "Débito";
-                        }
-                    } else if (data_key[x] === "realDate") {
-                        const fechaString = data_value[data_key[x]];
-                        // Divide el string en partes
-                        const dia = fechaString.slice(0, 2);
-                        const mes = fechaString.slice(2, 4);
-                        const ano = fechaString.slice(4, 8);
+                } 
+                tbody.appendChild(row2);
+            }
+        }).catch(error)(
 
-                        // Devuelve el formato de fecha completo
-                        data = `${dia}/${mes}/${ano}`;
-
-                    } else if (data_key[x] === "realTime") {
-                        const numeroString = data_value[data_key[x]];
-                        // Divide el string en partes de dos caracteres
-                        const horas = numeroString.slice(0, 2);
-                        const minutos = numeroString.slice(2, 4);
-                        const segundos = numeroString.slice(4, 6);
-
-                        // Devuelve el formato de hora completo
-                        data = `${horas}:${minutos}:${segundos}`;
-                    }else if (data_key[x] === "accountingDate"){
-                        //Se utiliza solo con ventas Débito (Opcional)
-                        if (data_value["cardType"] === "DB"){
-                            data = data_value[data_key[x]];
-                        } else {
-                            data = "--";
-                        }
-                    } else if (data_key[x] === "accountNumber"){
-                        //Se utiliza solo con ventas Débito (Opcional)
-                        if (data_value["cardType"] === "DB"){
-                            data = data_value[data_key[x]];
-                        } else{
-                            data = "--";
-                        }
-                    }else if (data_key[x] === "sharesNumber"){
-                        //Se utiliza solo con ventas Débito (Opcional)
-                        if (data_value["cardType"] === "CR"){
-                            data = data_value[data_key[x]];
-                        } else {
-                            data = "--";
-                        }
-                    } else if (data_key[x] === "sharesAmount"){
-                        //Se utiliza solo con ventas Débito (Opcional)
-                        if (data_value["cardType"] === "CR"){
-                            data = data_value[data_key[x]];
-                        } else{
-                            data = "--";
-                        }
-                    }else {
-                        data = data_value[data_key[x]];
-                    }
-                    const textNode = document.createTextNode(data);
-                    td.appendChild(textNode);
-                    row2.appendChild(td);
-                    bandera = false;
-                }
-            } 
-            tbody.appendChild(row2);
-        }
+        );
     } catch (error) {
         console.log('Error:', error);
-        console.log("-  "+error);
+        showAlerts(error,"alert-danger","elementsAlertInfo");
     }
 }
 // generamos tabla de ventas exitosa
@@ -885,6 +1069,7 @@ async function setTableExitosa(result) {
     } catch (error){
         console.log('Error:', error);
         console.log("- Error Set Table Existosa: "+error);
+        showAlerts("Error: "+error,"alert-danger","elementsAlertSale");
         
     }
 }
@@ -999,6 +1184,8 @@ async function setTableFallida(result) {
     } catch (error){
         console.log('Error:', error);
         console.log("- Error Set Table Fallida: "+error);
+        showAlerts("Error: "+error,"alert-danger","elementsAlertSale");
+
     }
 }
 //limpiamos la tabla correspondiente
@@ -1012,13 +1199,269 @@ async function deleteElementsTable(tableName){
         state[i].remove();
     }
 }
-async function salidacatch(){
-    const isPosConnect = Transbank.POS.getPortStatus();
-    if (isPosConnect["connected"] === true){
-        await closePortTransbanck();
+
+// obtenemos la última venta 
+async function LastSaleTransbank() {
+    try {
+        let result2 = await Transbank.POS.getLastSale(false);
+        console.log(result2,"soy la ultima venta");
+        if (result2.responseCode === 11){
+            showAlerts("- No existe venta para mostrar.", "alert-warning", "elementsAlertInfo");
+            return
+        }
+        let divtabledetalle = document.getElementById("elementTableDetalle");
+        let divtablelastsale = document.getElementById("elementTableLastSale");
+        
+        if (divtabledetalle.style.display === "block"){
+            divtabledetalle.style.display = "none";
+        }
+        divtablelastsale.style.display = "block";
+
+        var table = document.getElementById("tableLastSale");
+        //antes de cargar la tabla eliminamos los elementos antiguos.
+        deleteElementsTable('tableLastSale'); 
+       
+        let data_key = Object.keys(result2);
+        let data_value = result2;
+        //head 
+        var thead = table.querySelector('thead');
+        var state = thead.querySelector('tr');
+        if (state === null){
+            console.log(data_value);
+            var iskeySharesNumber = "sharesNumber" in data_value;
+            console.log(iskeySharesNumber);
+            const row1 = document.createElement("tr");
+            for (let i = 0; i <data_key.length; i++) {
+                const th = document.createElement("th");
+                th.setAttribute("scope", "col");
+                let bandera = false;
+                let msj = "";
+                if(data_key[i] === "functionCode"){
+                    msj = "Código de función";
+                    bandera = true;
+                }else if(data_key[i] === "responseCode"){
+                    msj = "código de respuesta";
+                    bandera = true;
+                }else if(data_key[i] === "commerceCode"){
+                    msj = "código de comercio";
+                    bandera = true;
+                }else if(data_key[i] === "terminalId"){
+                    msj = "identificador de terminal";
+                    bandera = true;
+                }else if(data_key[i] === "responseMessage"){
+                    msj = "mensaje de respuesta";
+                    bandera = true;
+                }else if(data_key[i] === "successful"){
+                    msj = "exitosa";
+                    bandera = true;
+                }else if(data_key[i] === "ticket"){
+                    msj = "boleto";
+                    bandera = true;
+                }else if(data_key[i] === "amount"){
+                    msj = "Monto";
+                    bandera = true;
+                }else if(data_key[i] === "authorizationCode"){
+                    msj = "Código de Autorización";
+                    bandera = true;
+                }else if(data_key[i] === "realDate"){
+                    msj = "Fecha";
+                    bandera = true;
+                }else if(data_key[i] === "employeeId"){
+                    msj = "ID de empleado";
+                    bandera = true;
+                }else if(data_key[i] === "sharesNumber"){
+                    msj = "Número de cuotas";
+                    bandera = true;
+                }else if(data_key[i] === "sharesAmount"){
+                    msj = "Monto de la cuota";
+                    bandera = true;
+                }else if(data_key[i] === "last4Digits"){
+                    msj = "Últimos 4 dígitos";
+                    bandera = true;
+                }else if(data_key[i] === "operationNumber"){
+                    msj = "número de operación";
+                    bandera = true;
+                }else if(data_key[i] === "cardType"){
+                    msj = "tipo de tarjeta";
+                    bandera = true;
+                }else if(data_key[i] === "accountingDate"){
+                    msj = "Fecha de contabilidad";
+                    bandera = true;
+                }else if(data_key[i] === "cardBrand"){
+                    msj = "Tarjeta";
+                    bandera = true;
+                }else if(data_key[i] === "commerceProviderCode"){
+                    msj = "Código de proveedor";
+                    bandera = true;
+                }else if(data_key[i] === "accountNumber"){
+                    msj = "número de cuenta";
+                    bandera = true;
+                }else if(data_key[i] === "realTime"){
+                    msj = "Hora";
+                    bandera = true;
+                }
+                if (bandera === true){
+                    const textth = document.createTextNode(msj);
+                    th.appendChild(textth);
+                    row1.appendChild(th);
+                    bandera = false;
+                }
+            }
+            thead.appendChild(row1);
+        }   
+        //body 
+        let tbody =  table.querySelector("tbody");
+        let row2 = document.createElement("tr");
+        for (let x = 0; x <data_key.length; x++) {
+            const td = document.createElement("td");
+            let bandera = false;
+            let msj = "";
+            if(data_key[x] === "functionCode"){
+                bandera = true;
+            }else if(data_key[x] === "responseCode"){
+                bandera = true;
+            }else if(data_key[x] === "commerceCode"){
+                bandera = true;
+            }else if(data_key[x] === "terminalId"){
+                bandera = true;
+            }else if(data_key[x] === "responseMessage"){
+                bandera = true;
+            }else if(data_key[x] === "successful"){
+                bandera = true;
+            }else if(data_key[x] === "ticket"){
+                bandera = true;
+            }else if(data_key[x] === "amount"){
+                bandera = true;
+            }else if(data_key[x] === "authorizationCode"){
+                bandera = true;
+            }else if(data_key[x] === "realDate"){
+                bandera = true;
+            }else if(data_key[x] === "employeeId"){
+                bandera = true;
+            }else if(data_key[x] === "sharesNumber"){
+                bandera = true;
+            }else if(data_key[x] === "sharesAmount"){
+                bandera = true;
+            }else if(data_key[x] === "last4Digits"){
+                bandera = true;
+            }else if(data_key[x] === "operationNumber"){
+                bandera = true;
+            }else if(data_key[x] === "cardType"){
+                bandera = true;
+            }else if(data_key[x] === "accountingDate"){
+                bandera = true;
+            }else if(data_key[x] === "cardBrand"){
+                bandera = true;
+            }else if(data_key[x] === "commerceProviderCode"){
+                bandera = true;
+            }else if(data_key[x] === "accountNumber"){
+                bandera = true;
+            }else if(data_key[x] === "realTime"){
+                bandera = true;
+            }
+            if(bandera === true){
+                let  data = "";
+                if (data_key[x] === "cardBrand"){
+                    data = tarjetas[data_value[data_key[x]]];
+                } else if (data_key[x] === "cardType") {
+                    // CR: Crédito  | DB: Débito
+                    if (data_value[data_key[x]] === "CR"){
+                        data = "Crédito";
+                    }else{
+                        data = "Débito";
+                    }
+                } else if (data_key[x] === "realDate") {
+                    const fechaString = data_value[data_key[x]];
+                    // Divide el string en partes
+                    const dia = fechaString.slice(0, 2);
+                    const mes = fechaString.slice(2, 4);
+                    const ano = fechaString.slice(4, 8);
+
+                    // Devuelve el formato de fecha completo
+                    data = `${dia}/${mes}/${ano}`;
+
+                } else if (data_key[x] === "realTime") {
+                    const numeroString = data_value[data_key[x]];
+                    // Divide el string en partes de dos caracteres
+                    const horas = numeroString.slice(0, 2);
+                    const minutos = numeroString.slice(2, 4);
+                    const segundos = numeroString.slice(4, 6);
+
+                    // Devuelve el formato de hora completo
+                    data = `${horas}:${minutos}:${segundos}`;
+                }else if (data_key[x] === "accountingDate"){
+                    //Se utiliza solo con ventas Débito (Opcional)
+                    if (data_value["cardType"] === "DB"){
+                        data = data_value[data_key[x]];
+                    } else {
+                        data = "--";
+                    }
+                } else if (data_key[x] === "accountNumber"){
+                    //Se utiliza solo con ventas Débito (Opcional)
+                    if (data_value["cardType"] === "DB"){
+                        data = data_value[data_key[x]];
+                    } else{
+                        data = "--";
+                    }
+                }else if (data_key[x] === "sharesNumber"){
+                    //Se utiliza solo con ventas Débito (Opcional)
+                    if (data_value["cardType"] === "CR"){
+                        data = data_value[data_key[x]];
+                    } else {
+                        data = "--";
+                    }
+                } else if (data_key[x] === "sharesAmount"){
+                    //Se utiliza solo con ventas Débito (Opcional)
+                    if (data_value["cardType"] === "CR"){
+                        data = data_value[data_key[x]];
+                    } else{
+                        data = "--";
+                    }
+                }else {
+                    data = data_value[data_key[x]];
+                }
+                const textNode = document.createTextNode(data);
+                td.appendChild(textNode);
+                row2.appendChild(td);
+                bandera = false;
+            }
+        } 
+        tbody.appendChild(row2);
+        
+    } catch (error) {
+        console.log("-  "+error);
+        showAlerts(error,"alert-danger","elementsAlertInfo");
     }
-    const isConnect = Transbank.POS.isConnected;
-    if (isConnect === true  ){
-        await disconnectTransbankAgente();
+}
+
+
+// Imprimimos el error de la tabla en la consola
+function tablaErrorsResponse(errorCode){
+    let isCode = errorCode in responseCodesPos;
+    let tableErrorRefund = [4,5,8,21];
+    let tableErrorPOS = [2,3,14,16,24,26,27,65,73,75,82,94,];
+    let tablaErrorSale =[1,6,7,10,12,13,17,20,60,61,62,67,68,70,72,74,76,77,88,93];
+    let tableErrorLastSale = [11];
+    if (isCode === true){
+        if (errorCode === 26){
+            LoadKeyTransbank();
+            showAlerts("- Recargando LLaves , Reintente la operación.","alert-warning", "elementsAlertStatus");
+        }
+        if (tableErrorRefund.includes(errorCode)){
+            showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertRefund");
+            console.log("2");
+        } else if (tableErrorPOS.includes(errorCode)){
+            showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertStatus");
+            console.log("3");
+        }else if (tablaErrorSale.includes(errorCode)){
+            showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertSale");
+            console.log("4");
+        }else if (tableErrorLastSale.includes(errorCode)){
+            showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertInfo");
+            console.log("5");
+        }else {
+            showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertStatus");
+            console.log("6");
+        }  
     }
 }

@@ -51,7 +51,7 @@
             </div>
             <div class="col">
                 <label class="form-label" for="enviar_anular">Enviar:</label><br>
-                <button class="btn btn-warning text-center" id="enviar_anular" style="width: 250px;" onclick="llamadoDeAcciones(10,'enviar_anular')">Ejecutar Anulación</button> 
+                <button class="btn btn-warning text-center" id="enviar_anular" style="width: 250px;" onclick="callFunctionTransbank(10,'enviar_anular')">Ejecutar Anulación</button> 
             </div>
         </div>
       
@@ -80,7 +80,7 @@
         </div>
         <div class="row text-center">
             <h3>Tabla detalle de ventas</h3>
-            <button class="btn btn-warning text-center" style="width: 250px;" id="detalle_venta" onclick="llamadoDeAcciones(9,'detalle_venta')">Generar Tabla de detalle</button> 
+            <button class="btn btn-warning text-center" style="width: 250px;" id="detalle_venta" onclick="callFunctionTransbank(9,'detalle_venta')">Generar Tabla de detalle</button> 
             <button class="btn btn-warning text-center" style="width: 250px;" onclick="deleteElementsTable('table_venta_detalle')">Limpiar tabla</button> 
             <div class="table-responsive">
                 <table class="table" id="table_venta_detalle">
@@ -99,12 +99,12 @@
                     <div class="col text-center">
                          
                       
-                        <button class="btn btn-warning" id="ultima_venta" onclick="llamadoDeAcciones(5,'ultima_venta')">última venta</button> 
-                        <button class="btn btn-warning" id="cerrarDia" onclick="llamadoDeAcciones(6,'cerrarDia')">Cerrar día</button> 
+                        <button class="btn btn-warning" id="ultima_venta" onclick="callFunctionTransbank(5,'ultima_venta')">última venta</button> 
+                        <button class="btn btn-warning" id="cerrarDia" onclick="callFunctionTransbank(6,'cerrarDia')">Cerrar día</button> 
 
                         
-                        <button class="btn btn-warning" id="detalle_consola" onclick="llamadoDeAcciones(7,'detalle_consola')">Obtener detalle de ventas</button>
-                        <button class="btn btn-warning" id="detalle_pos" onclick="llamadoDeAcciones(8,'detalle_pos')">imprimir detalle de ventas POS</button>
+                        <button class="btn btn-warning" id="detalle_consola" onclick="callFunctionTransbank(7,'detalle_consola')">Obtener detalle de ventas</button>
+                        <button class="btn btn-warning" id="detalle_pos" onclick="callFunctionTransbank(8,'detalle_pos')">imprimir detalle de ventas POS</button>
                         <h4>Venta</h4>
                         <div class="col">
                             <label class="form-label" for="montoPos">Monto:</label>
@@ -116,7 +116,7 @@
                         </div>
                         <div class="col">
                             <label class="form-label" for="enviar">Enviar:</label><br>
-                            <button class="btn btn-warning text-center" id="enviar" style="width: 250px;" onclick="llamadoDeAcciones(11,'enviar')">Ejecutar Venta</button> 
+                            <button class="btn btn-warning text-center" id="enviar" style="width: 250px;" onclick="callFunctionTransbank(11,'enviar')">Ejecutar Venta</button> 
                         </div>
                     </div>
                 </div>
@@ -125,17 +125,17 @@
                     <div class="col text-center">
                         <button class="btn btn-warning" id="conectar_agente" onclick="ConnectAgent()">Conectar Agente</button> 
                         <button class="btn btn-warning" id="conectar_puerto" onclick="ConectarTransbankPosOpenPort()">Conectar POS </button> 
-                        <button class="btn btn-warning" id="ver_puertos" onclick="llamadoDeAcciones(1,'ver_puertos')">Puertos</button> 
-                        <button class="btn btn-warning" id="cargar_llaves" onclick="llamadoDeAcciones(2,'cargar_llaves')">Cargar llaves</button> 
+                        <button class="btn btn-warning" id="ver_puertos" onclick="callFunctionTransbank(1,'ver_puertos')">Puertos</button> 
+                        <button class="btn btn-warning" id="cargar_llaves" onclick="callFunctionTransbank(2,'cargar_llaves')">Cargar llaves</button> 
                         
-                        <button class="btn btn-warning" id="btn_poll" onclick="llamadoDeAcciones(3,'btn_poll')">Poll</button> 
-                        <button class="btn btn-warning" id="total_ventas" onclick="llamadoDeAcciones(4,'total_ventas')">Obtener total de ventas</button> 
+                        <button class="btn btn-warning" id="btn_poll" onclick="callFunctionTransbank(3,'btn_poll')">Poll</button> 
+                        <button class="btn btn-warning" id="total_ventas" onclick="callFunctionTransbank(4,'total_ventas')">Obtener total de ventas</button> 
                         <br>
-                        <button class="btn btn-warning" id="ultima_venta" onclick="llamadoDeAcciones(5,'ultima_venta')">última venta</button> 
-                        <button class="btn btn-warning" id="cerrarDia" onclick="llamadoDeAcciones(6,'cerrarDia')">Cerrar día</button> 
+                        <button class="btn btn-warning" id="ultima_venta" onclick="callFunctionTransbank(5,'ultima_venta')">última venta</button> 
+                        <button class="btn btn-warning" id="cerrarDia" onclick="callFunctionTransbank(6,'cerrarDia')">Cerrar día</button> 
                         
-                        <button class="btn btn-warning" id="detalle_consola" onclick="llamadoDeAcciones(7,'detalle_consola')">Obtener detalle de ventas</button>
-                        <button class="btn btn-warning" id="detalle_pos" onclick="llamadoDeAcciones(8,'detalle_pos')">Obtener detalle de ventas POS</button>
+                        <button class="btn btn-warning" id="detalle_consola" onclick="callFunctionTransbank(7,'detalle_consola')">Obtener detalle de ventas</button>
+                        <button class="btn btn-warning" id="detalle_pos" onclick="callFunctionTransbank(8,'detalle_pos')">Obtener detalle de ventas POS</button>
                         <button class="btn btn-warning" id="cerrar_puerto" onclick="closePortTransbanck()">Desconectar POS</button>
                         <button class="btn btn-warning" id="cerrar_agente" onclick="disconnectTransbankAgente()">Desconectar Agente</button>
                     </div>

@@ -1241,7 +1241,7 @@ async function tablaErrorsResponse(errorCode){
 }
 
 // ejecutamos las demas funciones sin dejar que el usuario de conecte al agente y al pos
-async function llamadoDeAcciones(llamada, id_btn){
+async function callFunctionTransbank(llamada, id_btn){
     try{
         var nombre =  document.getElementById(id_btn).innerHTML;
         document.getElementById(id_btn).disabled = true;
