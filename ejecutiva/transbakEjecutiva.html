@@ -15,6 +15,20 @@
     
     <div class="container">
 
+        <div class="row" style="margin-bottom: 20px; margin-top: 20px;">
+            <h4 class="text-center">Configuración</h4>
+            <div class="row">
+                <div class="col">
+                    <button class="btn btn-warning" onclick="ConnectAgentSelectPort()"> Connect</button>
+                </div>
+                <div class="col">
+                    <label for="SelectCom">Select COM:</label><br>
+                    <select name="SelectCom"  class="form-select" id="SelectCom" class="w-40">
+                       
+                    </select>
+                </div>
+            </div>
+        </div>
         <div style="margin-top: 20px;">
             <nav>
                 <div class="nav nav-tabs" id="nav-tab" role="tablist">
@@ -46,7 +60,7 @@
                         </div>
                         <div class="col">
                             <label class="form-label" for="enviar">Enviar:</label><br>
-                            <button class="btn btn-warning text-center" id="enviar" style="width: 250px;" onclick="TransbankVenta('enviar')">Iniciar Venta</button> 
+                            <button class="btn btn-warning text-center" id="enviar" style="width: 250px;" onclick="TransbankSale('enviar')">Iniciar Venta</button> 
                         </div>
                     </div>
                     <div class="row" style="margin-top:40px;">
@@ -143,6 +157,9 @@
                     </div>
                     <div class="row" style="margin: 10px;">
                         <button class="btn btn-warning" id="restart" onclick="restartAgent()" >Restart Agent</button>
+                    </div>
+                    <div class="row" style="margin: 10px;">
+                        <button class="btn btn-warning" id="restart" onclick="detectePort()" >connect port (prueba)</button>
                     </div>
                    
                     
