@@ -19,11 +19,12 @@
             <h4 class="text-center">Configuración</h4>
             <div class="row">
                 <div class="col">
-                    <button class="btn btn-warning" onclick="ConnectAgentSelectPort()"> Connect</button>
+                    <label for="btn_charge">Recarga Puertos Disponibles:</label><br>
+                    <button class="btn btn-warning" id="btn_charge" name="btn_charge" onclick="ConnectAgentChargeSelect()">Recargar elementos</button>
                 </div>
                 <div class="col">
-                    <label for="SelectCom">Select COM:</label><br>
-                    <select name="SelectCom"  class="form-select" id="SelectCom" class="w-40">
+                    <label for="SelectCom">Seleccionar Puerto:</label><br>
+                    <select name="SelectComName" class="form-select" id="SelectCom" class="w-40">
                        
                     </select>
                 </div>
@@ -71,7 +72,7 @@
                         </div>
                     </div>
                     <div class="row text-center" >
-                        <div id="elementTableSuccess" style="display: none;">
+                        <div class="containerTable" id="elementTableSuccess" style="display: none;">
                             <h4>Ingreso Exitoso</h4>
                             <div class="table-responsive">
                                 <table class="table table-success table-responsive" id="tableExitosa">
@@ -80,7 +81,7 @@
                                 </table>
                             </div>
                         </div>
-                        <div id="elementTableDanger" style="display: none;">
+                        <div class="containerTable" id="elementTableDanger" style="display: none;">
                             <h4>Ingreso Fallido</h4>
                             <div class="table-responsive">
                                 <table class="table table-danger table-responsive" id="tableFallida">
@@ -89,7 +90,7 @@
                                 </table>
                             </div>
                         </div>
-                        <div id="elementTableWarning" style="display: none;">
+                        <div class="containerTable" id="elementTableWarning" style="display: none;">
                             <h4>Ingreso Sin respuesta</h4>
                             <div class="table-responsive">
                                 <table class="table table-warning table-responsive" id="tableWarning">
@@ -122,7 +123,7 @@
                         </div>
                     </div>
                     <div class="row" >
-                        <div id="elementTableRefund" style="display: none;">
+                        <div class="containerTable" id="elementTableRefund" style="display: none;">
                             <h4>Devolución</h4>
                             <div class="table-responsive">
                                 <table class="table table-secondary table-responsive" id="tableRefund">
@@ -154,15 +155,7 @@
                     </div>
                     <div class="row" style="margin: 10px;">
                         <button class="btn btn-warning" id="detalle_pos" onclick="GetDetailsTransbankPrint('detalle_pos')" >Imprimir Detalle de ventas POS</button>
-                    </div>
-                    <div class="row" style="margin: 10px;">
-                        <button class="btn btn-warning" id="restart" onclick="restartAgent()" >Restart Agent</button>
-                    </div>
-                    <div class="row" style="margin: 10px;">
-                        <button class="btn btn-warning" id="restart" onclick="detectePort()" >connect port (prueba)</button>
-                    </div>
-                   
-                    
+                    </div> 
                 </div>
             </div>
             <div class="col-9 text-center">
@@ -171,7 +164,7 @@
                     <div class="alert alert-danger" role="alert" style="display: none;" ></div>
                     <div class="alert alert-warning" role="alert" style="display: none;"></div>
                 </div>
-                <div id="elementTableDetalle" style="display: none; margin-top: 20px;">
+                <div class="containerTable" id="elementTableDetalle" style="display: none; margin-top: 20px;">
                     <h4>Tabla de Detalles</h4>
                     <h6 id="subTime"></h6>
                     <div class="table-responsive" style=" margin-top: 20px;">
@@ -181,9 +174,9 @@
                         </table>
                     </div>
                 </div>
-                <div id="elementTableLastSale" style="display: none; margin-top: 20px;">
+                <div class="containerTable" id="elementTableLastSale" style="display: none; margin-top: 20px;">
                     <h4>Última Venta</h4>
-                    <div class="table-responsive " style="margin-top: 20px;">
+                    <div  class="table-responsive " style="margin-top: 20px;">
                         <table class="table table-striped table-hover table-info" id="tableLastSale">
                             <thead></thead>
                             <tbody></tbody>

@@ -66,24 +66,9 @@ var responseCodesPos = {
     95: "Error al Imprimir TASA"
     };
 
-    /*
+/*
     Funciones Complementarias
-    */
-async function restartAgent(){
-    try{
-       /* 
-
-       */
-        await ConnectAgent();
-        await closePortTransbanck();
-        await disconnectTransbankAgente();
-        showAlerts("Restart Completado.","alert-success", "elementsAlertStatus");
-
-    }catch (error){
-        console.log("problema con el restart: "+error);
-        showAlerts("Restart Error.","alert-danger", "elementsAlertStatus");
-    }
-}
+*/
 function showAlerts(text, tipeAlert, idContainerAlerts) {
     /*
     Solicita el contenedor de las alertas y la Clase de la alerta
@@ -96,7 +81,7 @@ function showAlerts(text, tipeAlert, idContainerAlerts) {
     // hide all the visible alerts
     listAlert.forEach((alertclasshide) => {
         var allAlertshide = document.querySelectorAll("."+alertclasshide);
-        var alertSelecthide = Array.from(allAlertshide)
+        var alertSelecthide = Array.from(allAlertshide);
         alertSelecthide.forEach((elementohide)=>{
             elementohide.style.display = "none";
             
@@ -105,7 +90,7 @@ function showAlerts(text, tipeAlert, idContainerAlerts) {
     //select one alert for show focus
     listAlert.forEach((alertclass) => {
         var allAlerts = containerAlert.querySelectorAll("."+alertclass);
-        var alertSelect = Array.from(allAlerts)
+        var alertSelect = Array.from(allAlerts);
         alertSelect.forEach((elemento)=>{
             if (elemento.className.includes(tipeAlert)){
                 elemento.innerHTML = text;
@@ -125,16 +110,56 @@ function validateNumberInput(dato, salida){
     let isNum = regex.test(dato);
     if (dato.length === 0){
         alert("- Ingrese el "+salida+".");
-        return false
+        return false;
     }
     if (isNum === false){
         alert("- Ingresar Solo Numeros en "+salida+".");
-        return false
+        return false;
     }
-    return true
+    return true;
+}
+function btn_disable(btn_id){
+    document.getElementById(btn_id).disabled = true;
+    document.getElementById(btn_id).innerHTML="Enviando...";
+}
+function btn_enable(btn_id,btn_name){
+    let btn = document.getElementById(btn_id);
+    btn.innerHTML= btn_name; 
+    btn.disabled = false;
+}
+//hiden all div for class 
+function hidenConteinerAlert({Status=true, Sale=true, Refund=true, Info=true, } = {}){ 
+    let nameContainer = {"elementsAlertStatus":Status,"elementsAlertSale":Sale,"elementsAlertRefund":Refund,"elementsAlertInfo":Info};
+    let ContainerAlert = document.querySelectorAll(".containerAlert");
+    ContainerAlert.forEach((elementClass)=>{ 
+        if(nameContainer[elementClass.id]){
+            elementClass.style.display = "none";
+        }else{
+            elementClass.style.display = "inline-block";
+        }
+    });
+}
+//Cambio de tablas 
+function hidenContainerTable({saleSuccess=true,salaDanger=true,saleWarning=true,refundSuccess=true, detailsSuccess=true, lastSaleSuccess=true}={}){
+    let nameContainer = {"elementTableSuccess":saleSuccess,
+                        "elementTableDanger":salaDanger,
+                        "elementTableWarning":saleWarning,
+                        "elementTableRefund":refundSuccess,
+                        "elementTableDetalle":detailsSuccess,
+                        "elementTableLastSale":lastSaleSuccess};
+    let ContainerTable = document.querySelectorAll(".containerTable");
+    ContainerTable.forEach((elementClass)=>{ 
+        if(nameContainer[elementClass.id]){
+            elementClass.style.display = "none";
+        }else{
+            elementClass.style.display = "block";
+        }
+    });
+    
+
 }
 /*
-    Funciones de on and off
+    Funciones de Conexiones y desconexiones 
 */
 // verificamos que el agente este desplegado y nos conectamos
 async function ConnectAgent(){
@@ -160,6 +185,197 @@ async function ConnectAgent(){
 
     }    
 }
+// buscamos el puerto del pos y los conectamos 
+async function ConnectTransbankPosOpenPort(){
+    /*
+    Evaluamos que la Seleccion del puerto no este vacio
+    Ejecutamos la Función de Transbank openPort()
+    */
+    try{
+        let SelectCom = document.getElementById("SelectCom");
+        let isConnect = await Transbank.POS.isConnected;
+        if (isConnect){
+            console.log("Puerto seleccionado",SelectCom.value);
+            let openPort = await Transbank.POS.openPort(SelectCom.value);  
+            if (openPort){
+                //No hay problemas al ejecutarse se guarda el puerto
+                localStorage.setItem("PortCom",SelectCom.value );
+                console.log("- Conectado con el POS.");   
+                return true;
+            }else {
+                console.log("- No se  pudo establecer concexión con el POS."); 
+                showAlerts("- No se  pudo establecer concexión con el POS.","alert-warning","elementsAlertStatus");
+                hidenConteinerAlert({Status: false});
+                return false;
+            }
+        } else { 
+            return false;
+        }
+        
+    } catch (error){
+        console.log("-Error openPort: ",error);
+        if (error === "Another connect command was already sent and it is still waiting"){
+            showAlerts("Problemas de comunicación, Se recomienda reiniciar el Agente.","alert-danger","elementsAlertStatus");
+        }else if(error.includes("not open serial")){
+            showAlerts("Problemas de comunicación, Se recomienda reiniciar el Agente y/o Reconectar el 'POS'.","alert-danger","elementsAlertStatus");
+        }else if(error.includes("ACK has not been received in 2000 ms")){
+            showAlerts("No se pudo establecer conexión con el 'POS'. Verifique que el puerto sea el correspondiente." ,"alert-danger","elementsAlertStatus");
+        }else{
+            showAlerts("Problema en la comunicación, Reintente la operación","alert-danger","elementsAlertStatus");
+        }
+        hidenConteinerAlert({Status: false});
+        await disconnectTransbankAgent();
+        return false;
+    }
+}
+// cerramos el puerto donde se conecto el POS
+async function closePortTransbanck(){
+    /* 
+    Ejecutamos la Función de Transbank closePort()
+        Retorna un Bool 
+    */
+    try{
+        const isConnect = await Transbank.POS.isConnected;
+        if(isConnect){
+            let isPosConnect = await Transbank.POS.getPortStatus();
+            if (isPosConnect === null){
+                console.log(isPosConnect);
+                return;
+            }
+            if (isPosConnect.connected === true){
+                let closePort = await Transbank.POS.closePort();
+                if (closePort === null){
+                    console.log(closePort);
+                    return;
+                }
+                if(closePort === true){
+                    console.log("- Desconectado del POS Correctamente.");
+                }else {
+                    console.log("- Problemas en la Comunicación con el POS.");
+                }
+            }else {
+                console.log("- No se encontro ningun POS conectado.");
+            }
+        }else {
+            console.log("- No estas conectado al agente.");
+        }
+    }catch (error){
+        console.log("- Close Port: "+ error);
+        if("Cannot read" in error){
+            console.log(error);
+        }else{
+            showAlerts("- "+error,"alert-danger","elementsAlertStatus");
+        }
+        return;
+    }
+}
+// cerramos la conexión con el agente
+async function disconnectTransbankAgent(){
+    /*
+    Ejecutamos la Función de Transbank disconnect()
+        Retorna un Bool 
+    */
+    try{
+        let isConnect = await Transbank.POS.isConnected;
+        if(isConnect === true){
+            const disconnect = await Transbank.POS.disconnect();
+            if (disconnect != null){
+                console.log("- Desconectado del Agente Correctamente.");
+            } else {
+                console.log("- Problemas en la Comunicación con el Agente.");
+            }
+        }else {
+            console.log("- No se encontro ningun Agente conectado.");
+        }
+    } catch (error) {
+        console.log("- disconnect agente: "+error);
+    }
+}  
+//Cargar Select con los puertos disponibles
+async function ConnectAgentChargeSelect(){
+    /* 
+    Ejecutamos la Función de Transbank getPorts()
+        Retorna un objeto con todos los purtos COM disponibles.
+
+    -----------------Detalle de los puertos COM--------------------------
+
+        manufacturer = fabricante del dispositivos.
+        vendorId =  Identifica al fabricante del dispositivo.
+        productId = Identifica el modelo específico del dispositivo.
+
+                     manufacturer = "INGENICO";
+                     vendorId = "0B00";
+                     productId = "0054";
+                    
+        Alta probabilidad de encontrar estas variables en los puertos COM
+    -----------------------------------------------------------------------
+
+    */
+    try{
+        let SelectCom = document.getElementById("SelectCom");
+        let alloption = SelectCom.querySelectorAll("option");
+        var PortCom = localStorage.getItem("PortCom");
+        let isConnect = await Transbank.POS.isConnected;
+        let response = await fetch("https://localhost:8090/");
+      
+        if (response){
+            //console.log("online");
+            if (isConnect != true){
+                let connect = await Transbank.POS.connect();
+                console.log("- Agente Conectado Correctamente."); 
+                if(connect){
+                    const PortSelect = await Transbank.POS.getPorts();
+                    if (PortSelect.length != 0 ){
+                        // eliminamos el contenido del select antes de recargar
+                        for(let o=0; alloption.length > o ; o++){
+                            if(alloption[o].val != ""){
+                                alloption[o].remove();
+                            }
+                        }
+                        let coincidencia = false; 
+                        for(let i=0; i<PortSelect.length; i++){
+                            let data_value = PortSelect[i];
+                            const option = document.createElement("option");
+                            if(PortCom === data_value["path"]){
+                                //Si encontramos el mismo puerto en el localStoreg
+                                //lo seleccionamos y no generamos él optionDisable 
+                                option.selected = true;
+                                coincidencia = true;
+                            }
+                            option.value = data_value["path"];
+                            option.innerHTML = data_value["path"]+" - "+data_value["manufacturer"];
+                            SelectCom.appendChild(option);
+                        }
+                        if (!coincidencia){
+                            const optionDisable = document.createElement("option"); 
+                            optionDisable.disabled = true;
+                            optionDisable.innerHTML = "Seleccionar";
+                            optionDisable.value= "";
+                            optionDisable.selected = true;
+                            SelectCom.prepend(optionDisable);
+                        }
+                    }else{
+                        showAlerts("- No se encontraron dispositivos disponibles.","alert-danger","elementsAlertStatus");
+                    }
+                }else {
+                    showAlerts("- No se pudo establecer conexión con el agente.","alert-warning","elementsAlertStatus");
+                }
+            } else { 
+                showAlerts("- Ya estas Conectado al Agente.","alert-warning","elementsAlertStatus");
+            }
+        } 
+    } catch(error){
+        //console.log("Offline");
+        console.log("- Error ChargeSelect: "+error);
+        showAlerts("- El Agente no se encuentra Despeglado.","alert-danger","elementsAlertStatus");
+
+    }finally{
+        await disconnectTransbankAgent();
+        console.log("finally function ConnectAgentSelectPort");
+    }
+    
+}
+//Funcion de cargar para que el poll genere el error 
 async function ConnectAgentPortPoll() {
     /*
     Funcion para conectar y lance el error para el poll sin arrojar alertas
@@ -188,18 +404,10 @@ async function ConnectAgentPortPoll() {
         }
         const getPort = await Transbank.POS.getPorts();
         if (getPort.length != 0 ){
-            let valuePortCom;
-            for(let i=0; i<getPort.length; i++){
-                let data_key = Object.keys(getPort[i]); // Genera un array con las keys del diccionario
-                let data_value = getPort[i];
-                for ( let x=0 ; x < data_key.length; x++){
-                    if(data_key[x] === "path"){
-                        valuePortCom = data_value[data_key[x]];
-                        break;
-                    }
-                }
-            }
-            let openPort = await Transbank.POS.openPort(valuePortCom); 
+            let SelectCom = document.getElementById("SelectCom");
+            let selectedOption = SelectCom.options[SelectCom.selectedIndex];
+          
+            let openPort = await Transbank.POS.openPort(selectedOption.value); 
             if(openPort){
                 console.log("Puerto conectado con POS");
                 return true;
@@ -210,197 +418,54 @@ async function ConnectAgentPortPoll() {
         }
     }catch(error){
         console.log("Connect Poll: ",error);
-        if (error === "Another connect command was already sent and it is still waiting" || error.includes("not open serial")){
+        if (error === "Another connect command was already sent and it is still waiting"){
             showAlerts("Problemas al Conectar, Se recomienda reiniciar el Agente.","alert-danger","elementsAlertStatus")
-        }else if (error === "Could not open serial connection..."){
-            showAlerts("Problemas al Conectar, Se recomienda reiniciar el Agente.","alert-danger","elementsAlertStatus")
+        }else if (error.includes("not open serial")){
+            showAlerts("Problemas al Conectar el POS, Se recomienda reiniciar el Agente y Verificar el Puerto de Selección.","alert-danger","elementsAlertStatus")
         }
-        await disconnectTransbankAgente();
+        await disconnectTransbankAgent();
         return false;
-
     }
     
 }
-
-// buscamos el puerto del pos y los conectamos 
-async function ConnectTransbankPosOpenPort(){
-    /*
-        Obtenemos los puertos disponibles donde se encuentre un POS con getPorts()
-        Seleccionamos el primero y obtenemos el path
-        para entregarlo en la funcion de openPort() 
-        ante cualquier error nos desconectamos del agente
-    */
-  
-
-    try{
-        let SelectCom = document.getElementById("SelectCom");
-        let PortCom = localStorage.getItem("PortCom");
-        console.log(PortCom);
-        if(!PortCom){
-            localStorage.setItem(SelectCom.val);
-            console.log(PortCom);
-        }else if(PortCom != SelectCom.val){
-            localStorage.setItem(SelectCom.val);
-            console.log(PortCom);
-        }else{
-            let isConnect = await Transbank.POS.isConnected;
-            if (isConnect){
-                console.log(SelectCom);
-                let openPort = await Transbank.POS.openPort(SelectCom);  
-                if (openPort){
-                    console.log("- Conectado con el POS.");   
-                    return true;
-                }else {
-                    console.log("- No se  pudo establecer concexión con el POS."); 
-                    showAlerts("- No se  pudo establecer concexión con el POS.","alert-warning","elementsAlertStatus");
-                    return false;
-                }
-            } 
-        } 
-    } catch (error){
-        console.log("Conectar puerto: ",error);
-        if (error === "Another connect command was already sent and it is still waiting" || error.includes("not open serial")){
-            showAlerts("Problemas de comunicación, Se recomienda reiniciar el Agente.","alert-danger","elementsAlertStatus")
-        }else{
-            showAlerts("Problema en la comunicación, Reintente la operación","alert-danger","elementsAlertStatus");
-        }
-        await disconnectTransbankAgente();
-        return false;
-    }
-}
-async function ConnectTransbankPosOpenPort2(){
-    /*
-        Obtenemos los puertos disponibles donde se encuentre un POS con getPorts()
-        Seleccionamos el primero y obtenemos el path
-        para entregarlo en la funcion de openPort() 
-        ante cualquier error nos desconectamos del agente
-    */
-    
-    try{
-        let isConnect = await Transbank.POS.isConnected;
-        if (isConnect){
-            const getPort = await Transbank.POS.getPorts();  
-            if (getPort.length != 0 ){
-                let valuePortCom;
-                for(let i=0; i<getPort.length; i++){
-                    let data_key = Object.keys(getPort[i]);
-                    let data_value = getPort[i];
-                    for ( let x=0 ; x < data_key.length; x++){
-                        if(data_key[x] === "path"){
-                            valuePortCom = data_value[data_key[x]];
-                            break;
-                        }
-                    }
-                }
-                let openPort = await Transbank.POS.openPort(valuePortCom);  
-                if (openPort){
-                    console.log("- Conectado con el POS.");   
-                    return true;
-                }else {
-                    console.log("- No se  pudo establecer concexión con el POS."); 
-                    showAlerts("- No se  pudo establecer concexión con el POS.","alert-warning","elementsAlertStatus");
-                    return false;
-                }
-            } else {
-                showAlerts("- No se encontro ni un POS Conectado.","alert-warning","elementsAlertStatus");
-                await disconnectTransbankAgente();
-                return false;
-            }
-        }
-    } catch (error){
-        console.log("Conectar puerto: ",error);
-        if (error === "Another connect command was already sent and it is still waiting" || error.includes("not open serial")){
-            showAlerts("Problemas de comunicación, Se recomienda reiniciar el Agente.","alert-danger","elementsAlertStatus")
-        }else{
-            showAlerts("Problema en la comunicación, Reintente la operación","alert-danger","elementsAlertStatus");
-        }
-        await disconnectTransbankAgente();
-        return false;
-    }
-}
-
-// cerramos el puerto donde se conecto el POS
-async function closePortTransbanck(){
-    /* 
-        getPortStatus() Obtenemos el puerto que tiene una conexion establecida con el agent
-        en caso de encontrar un puerto conectado ejecutamos la funcion para desconectarlo
-        antes cualquier error generamos el aviso por consola
-    */
-    try{
-        let isPosConnect = await Transbank.POS.getPortStatus();
-        if (isPosConnect === null){
-            console.log(isPosConnect);
-            return;
-        }
-        if (isPosConnect.connected === true){
-            let closePort = await Transbank.POS.closePort();
-            if (closePort === null){
-                console.log(closePort);
-                return;
-            }
-            if(closePort === true){
-                console.log("- Desconectado del POS Correctamente.");
-            }else {
-                console.log("- Problemas en la Comunicación con el POS.");
-            }
-        }else {
-            console.log("- No se encontro ningun POS conectado.");
-        }
-    }catch (error){
-        console.log("- Close Port: "+ error);
-        showAlerts("- "+error,"alert-danger","elementsAlertStatus");
-        return;
-    }
-}
-// cerramos la conexion con el agente
-async function disconnectTransbankAgente(){
-    /*
-    consultamos si estamos conectado al agenet isConnected y procedemos
-    a desconectarnos del agente 
-    */
-    try{
-        let isConnect = await Transbank.POS.isConnected;
-        if(isConnect === true){
-            const disconnect = await Transbank.POS.disconnect();
-            if (disconnect != null){
-                console.log("- Desconectado del Agente Correctamente.");
-            } else {
-                console.log("- Problemas en la Comunicación con el Agente.");
-            }
-        }else {
-            console.log("- No se encontro ningun Agente conectado.");
-        }
-    } catch (error) {
-        console.log("- disconnect agente: "+error);
-    }
-}  
-
 /*
     Funciones de Transbank POS
-*/
 
+    Las siguentes Funciones siguen este esquema de ejecucion 
+    Conectarse al agente de Transbank
+        - Preguntar si el puerto esta disponible
+        (En caso de estar ocupado, Se ejecutara la funcion para cerrar y se volvera conectar para solventar problemas)
+        Nos Conectamos al puerto donde esta el POS
+            Ejecutamos la funcion correspondiente
+            -Evaluamos estados de exito , falla y errores
+        Finalizamos con la desconecion del puerto y del agente
+*/
 //anulacion de compra solo se puede con credito
 async function refundTransbank(btn_id){
     /*
-    Consultamos si estamos conectados al agent 
-    evaluamos si hay un puerto abierto antes de ejecutar la funcion
-        en caso de entrar un purto conectado  cerramos el puerto y lo volvemos abrir
-        de lo contrartio solo abrimos uno
-        antes de ejecutar la funcion evaluamos que el dato se numerico y no este null
-        sólo pueden realizarse para transacciones con tarjeta de crédito y que aún se encuentren en la memoria del POS
-        generamos el contenido de la tabla (thead, tbody)
-        luego de tener la respuesta (favorable y errores ) finalizamos cerrando el puerto y cerrando el agente 
+    Ejecutamos la Funcion  de Transbank refund(Numero de Operación)
+        Evaluamos que el input no este null
+        (Sólo pueden realizarse para transacciones con tarjeta de crédito y que aún se encuentren en la memoria del POS)
+
     */
-    var btn_name;
-    btn_name = document.getElementById(btn_id).innerHTML;
-    document.getElementById(btn_id).disabled = true;
-    document.getElementById(btn_id).innerHTML = "Enviando..";
+    let btn_name = document.getElementById(btn_id).innerHTML;
+    btn_disable(btn_id);
+    let SelectCom = document.getElementById("SelectCom");
+    if(SelectCom.value === ""){
+        alert("¡Seleccione un puerto!. Antes de ejecutar cualquier función.");
+        btn_enable(btn_id,btn_name);
+        return;
+    }
+    let numberOperationPos = $("#numeroOperation").val();
+    let isValueOperation = validateNumberInput(numberOperationPos , "Nº de Operación");
+    if (!isValueOperation){
+        btn_enable(btn_id,btn_name);
+        return;
+    }
 
     const isConnect =  await Transbank.POS.isConnected;
-   if (isConnect){
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+    if (isConnect){
+        btn_enable(btn_id,btn_name);
         console.log("Agente en uso.");
         return;
     }else{
@@ -409,34 +474,26 @@ async function refundTransbank(btn_id){
         if(isConnectP.connected){
             console.log("EL Puerto esta conectado. Reconectando");
             await closePortTransbanck();
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }else{
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){ 
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }
     }
     try{
-        let numberOperationPos = $("#numeroOperation").val();
-        let isValueOperation = validateNumberInput(numberOperationPos , "Nº de Operación");
-        if (!isValueOperation){
-            return
-        }
         let refundPos = await Transbank.POS.refund(numberOperationPos);
-
         if (refundPos !=null){
             if(refundPos.responseCode === 0){
                 showAlerts("- Anulación: Aceptada","alert-success","elementsAlertRefund");
-
-                let divtableSale = document.getElementById("elementTableSuccess");
-                let divtableSale2 = document.getElementById("elementTableDanger");
-                let divtableRefund = document.getElementById("elementTableRefund");
-                let divTableWarning = document.getElementById("elementTableWarning");       
-
-                if (divtableSale.style.display === "block" || divtableSale2.style.display === "block" || divTableWarning.style.display === "block"){
-                    divtableSale.style.display = "none";
-                    divtableSale2.style.display = "none";
-                    divTableWarning.style.display = "none";
-                }
-                divtableRefund.style.display = "block";
+                hidenConteinerAlert({Refund:false});
+                hidenContainerTable({refundSuccess:false});
         
                 var table = document.getElementById("tableRefund");
                 //antes de cargar la tabla eliminamos los elementos antiguos.
@@ -648,7 +705,6 @@ async function refundTransbank(btn_id){
                     }
                 } 
                 tbody.appendChild(row2);
-                
             }else{
                 tablaErrorsResponse(parseInt(refundPos.responseCode));
                 // showAlerts("- Anulacion Denegada ","alert-danger","elementsAlertRefund");
@@ -656,27 +712,27 @@ async function refundTransbank(btn_id){
         } else{
             showAlerts("- La anulción no se pudo llevar acabo.","alert-warning","elementsAlertRefund");
         }
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
     }catch(error){
-        showAlerts("- "+error,"alert-warning","elementsAlertRefund");
+        console.log("-Error refund: "+error);
+        if(error.includes("Cannot read")){
+            console.log(error);
+        }else{
+            showAlerts("- "+error,"alert-warning","elementsAlertRefund");
+        }
 
     }finally{
         await closePortTransbanck();
-        await disconnectTransbankAgente();
-        console.log("Salida de la funcion de ");
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        await disconnectTransbankAgent();
+        console.log("Finally function RefundTransbank");
+        btn_enable(btn_id,btn_name);
     }
 }
 // Cargamos llaves al pos para que este sincronizado con transbank
 async function loadKeyTransbank(){
     /*
-        Esta funcion sincroniza el POS con los servidores de banco estado.
-        por lo cual si en algun momento el POS solicita cargar llaves
-
+    Ejecutamos la Funcion  de Transbank loadKeys()
+        Sincroniza el POS con los servidores de Transbank.
     */ 
     const isConnect =  await Transbank.POS.isConnected;
    if (isConnect){
@@ -688,9 +744,11 @@ async function loadKeyTransbank(){
         if(isConnectP.connected){
             console.log("EL Puerto esta conectado. Reconectando");
             await closePortTransbanck();
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){return;}
         }else{
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){return;}
         }
     }  
     try {
@@ -721,28 +779,30 @@ async function loadKeyTransbank(){
         console.log("-Error loadkey: "+error);
     }finally{
         await closePortTransbanck();
-        await disconnectTransbankAgente();
+        await disconnectTransbankAgent();
         console.log("finally function refundTransbank");
     }
 }
 // generamos el detales de ventas del día (se imprime en el pos)
 async function GetDetailsTransbankPrint(btn_id){
     /*
-        Evaluamos la conexion 
-        ejecutamos la funcion de getDetails(bool) --> [bool == true (Genera el detalle en el POS en la boleta)] --> Arreglo vacio 
-                                                  --> [bool == false (Solo pide los datos que esten en la memoria del POS)] --> Arreglo con cada venta 
-        En este caso bool == True Solo efectuamos la boleta en el POS y finalizamos cerrando conexiones
+        Ejecutamos la Funcion  de Transbank getDetails(bool)
+            [bool == true (Genera el detalle en el POS en la boleta)] --> Arreglo vacio 
+            [bool == false (Solo pide los datos que esten en la memoria del POS)] --> Arreglo con cada venta 
+                En este Caso de uso bool == True 
+                    Solo se Emitira la boleta en el POS 
     */
-    var btn_name;
-    btn_name = document.getElementById(btn_id).innerHTML;
-    document.getElementById(btn_id).disabled = true;
-    document.getElementById(btn_id).innerHTML = "Enviando..";
-
+    let btn_name = document.getElementById(btn_id).innerHTML;
+    btn_disable(btn_id);
+    let SelectCom = document.getElementById("SelectCom");
+    if(SelectCom.value === ""){
+        alert("¡Seleccione un puerto!. Antes de ejecutar cualquier función.");
+        btn_enable(btn_id,btn_name);
+        return;
+    }
     const isConnect =  await Transbank.POS.isConnected;
    if (isConnect){
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
         console.log("Agente en uso.");
         return;
     }else{
@@ -751,60 +811,93 @@ async function GetDetailsTransbankPrint(btn_id){
         if(isConnectPort.connected){
             console.log("EL Puerto esta conectado. Reconectando");
             await closePortTransbanck();
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }else{
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){ 
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }
     }
     try{
-     
         const details = await Transbank.POS.getDetails(true);
-
         if (details === true) {
             // console.log("- Lista de ventas: Emitida en le POS.");
             showAlerts("- Lista de ventas: Emitida en le POS.","alert-success","elementsAlertInfo");
+            hidenConteinerAlert({Info:true});
+            hidenContainerTable();
         }else {
             // console.log("- No se pude generar el detalle de las ventas.");
             showAlerts("- No se pudo emitir el detalle de las ventas en el POS.","alert-warning","elementsAlertInfo");
+            hidenConteinerAlert({Info:true});
+            hidenContainerTable();
         }
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
     } catch (error) {
         console.log("- Error Detalle POS Print: "+error);
-        showAlerts("- Error Detalle POS: "+error ,"alert-danger","elementsAlertInfo");
+        if(error.includes("Cannot read")){
+            console.log(error);
+        }else {
+            showAlerts("- Error Detalle POS: "+error ,"alert-danger","elementsAlertInfo");    
+            hidenConteinerAlert({Info:true});
+            hidenContainerTable();
+        }
     }finally{
         await closePortTransbanck();
-        await disconnectTransbankAgente();
+        await disconnectTransbankAgent();
         console.log("finally function GetDetailsTransbankPrint");
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
     }
 }
-// generamos la venta sacando los datos de los input correspondientes
+// generamos la venta sacando
 async function TransbankSale(btn_id){
     /* 
-    Evaluamos la conexion
     Evaluamos que los input no esten en null y el monto sea numerico
-    ejecutamos la funcion doSale(monto, ticket)
-    para este caso generamos 3 tablas
-    tabla para el exito 
-    tabla para el fallo
-    tabla para el error --> Timeout: si la respuesta del POS nunca llego  generamos una tabla con monto, ticket, hora y fecha
-    finalizamos con la desconexión 
-
+    Efecutamos la funcion de Transbank doSale(monto, ticket)
+        retorna 
+            Un objeto con la conclusion del POS (Aprobada, denegada, error)
+            En casos de no tener comunicación 
+                Timeout: si la respuesta del POS nunca llego  generamos una tabla con monto, ticket, hora y fecha
     */
-    var btn_name;
-    btn_name = document.getElementById(btn_id).innerHTML;
-    document.getElementById(btn_id).disabled = true;
-    document.getElementById(btn_id).innerHTML = "Enviando..";
+    var monto;
+    var ticket;
+    var fecha;
+    var hora;
+
+    let btn_name = document.getElementById(btn_id).innerHTML;
+    btn_disable(btn_id);
+
+    //validamos que los inputs no esten vacios
+    let SelectCom = document.getElementById("SelectCom");
+    let montoPos = $("#montoPos").val();
+    let ticketPos = $("#ticketPos").val();
+    if(SelectCom.value === ""){
+        alert("¡Seleccione un puerto!. Antes de ejecutar cualquier función.");
+        btn_enable(btn_id,btn_name);
+        return;
+    }
+    let isValuemonto = validateNumberInput(montoPos , "Monto");
+    if (!isValuemonto){
+        btn_enable(btn_id,btn_name);
+        return;
+    }
+    if (ticketPos.length === 0){
+        alert("Ingrese el Ticket.");
+        btn_enable(btn_id,btn_name);
+        return;
+    }
+    // guardo los datos en caso de error de comunicacion 
+    monto = montoPos;
+    ticket = ticketPos;
 
     const isConnect =  await Transbank.POS.isConnected;
-   if (isConnect){
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+    if (isConnect){
+        btn_enable(btn_id,btn_name);
         console.log("Agente en uso.");
         return;
     }else{
@@ -813,101 +906,56 @@ async function TransbankSale(btn_id){
         if(isConnectP.connected){
             console.log("EL Puerto esta conectado. Reconectando");
             await closePortTransbanck();
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }else{
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){ 
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }
     }
-    var monto;
-    var ticket;
-    var fecha;
-    var hora;
-
-    try {   
-        let montoPos = $("#montoPos").val();
-        let ticketPos = $("#ticketPos").val();
-        let isValuemonto = validateNumberInput(montoPos , "Monto");
-        monto = montoPos;
-        ticket = ticketPos;
-        if (!isValuemonto) {
-            return;
-        }
-        if (ticketPos.length === 0){
-            alert("Ingrese el Ticket.")
-            return;
-        }
+    try {
         // Convertir a números
         montoPos = parseInt(montoPos);
-     
-        // identificando tablas
-        let divtableSuccess =  document.getElementById("elementTableSuccess");
-        let divtableDanger =  document.getElementById("elementTableDanger");
-        let divtableRefund =  document.getElementById("elementTableRefund");
-        let divTableWarning = document.getElementById("elementTableWarning");       
-
+        // datos en caso de falla
         const date = new Date()
         fecha= date.toLocaleDateString();
         hora= date.toLocaleTimeString();
+
         let result = await Transbank.POS.doSale(montoPos,ticketPos);
-        
         if (result.responseCode === 0){
-            //Consulta sobre si la tabla esta visible o no 
-            if (divtableDanger.style.display === "block" || divtableRefund.style.display === "block" || divTableWarning.style.display === "block"){
-                divtableDanger.style.display = "none";
-                divtableRefund.style.display = "none";
-                divTableWarning.style.display = "none";
-            }
+            hidenContainerTable({saleSuccess:false});
             deleteElementsTable("tableExitosa");
             setTableExitosa(result); 
             // Entregamos una alerta 
             showAlerts("¡¡Venta Completada Exitosamente!!.","alert-success","elementsAlertSale");
-
+            hidenConteinerAlert({Sale: false});
         }else {
-            if (divtableSuccess.style.display === "block"|| divtableRefund.style.display === "block"  || divTableWarning.style.display === "block"){
-                divtableSuccess.style.display = "none";
-                divTableWarning.style.display = "none";
-                divtableRefund.style.display = "none";
-            }
+    
+            hidenContainerTable({salaDanger:false});
             deleteElementsTable("tableFallida");
             setTableFallida(result);
-
             showAlerts("¡Fallo al intentar la venta!.","alert-danger","elementsAlertSale");
-
+            hidenConteinerAlert({Sale: false});
         }
-       
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
     } catch (error) {
         console.log("- Ejecutar Venta: "+error);
         if(error.includes("Timeout")){
             console.log(error);
             showAlerts("Verifique si la venta fue Aceptada en la tabla de Ventas.","alert-danger","elementsAlertSale");
             await deleteElementsTable('tableWarning');
-
-            noResponse = {
-                "Monto":monto, 
-                "Ticket":ticket,
-                "Fecha":fecha, 
-                "Hora":hora
-            };
-            let divTable = document.getElementById("elementTableWarning");       
-            let divtableSuccess =  document.getElementById("elementTableSuccess");
-            let divtableDanger =  document.getElementById("elementTableDanger");
-            let divtableRefund =  document.getElementById("elementTableRefund");
-
-            if (divtableSuccess.style.display === "block"|| divtableDanger.style.display === "block" || divtableRefund.style.display === "block"){
-                divtableSuccess.style.display = "none";
-                divtableDanger.style.display = "none";
-                divtableRefund.style.display = "none";
-            }
-            divTable.style.display = "block";
+            let noResponse = {"Monto":monto, "Ticket":ticket,"Fecha":fecha, "Hora":hora};
+            hidenContainerTable({saleWarning:false});
             let table = document.getElementById("tableWarning");
             var thead = table.querySelector('thead');
             var state = thead.querySelector('tr');
             let data_key = Object.keys(noResponse);
- 
-
             if (state === null){
                 const row1 = document.createElement("tr");
                 for (let i = 0; i <data_key.length; i++) {
@@ -917,7 +965,6 @@ async function TransbankSale(btn_id){
                     th.appendChild(textth);
                     row1.appendChild(th);
                     row1.className = "table-warning";
-
                 }
                 thead.appendChild(row1);
             }
@@ -930,44 +977,41 @@ async function TransbankSale(btn_id){
                 td.appendChild(textNode);
                 row2.className = "table-warning";
                 row2.appendChild(td);
-   
             }
-            tbody.appendChild(row2);
-            
+            hidenConteinerAlert({Sale: false});
+        }else if(error.includes("Cannot read")){
+            console.log(error);
+
         }else {
             showAlerts("Error al ejecutar la venta: "+error+", Reintente la operación.","alert-warning","elementsAlertSale");
         }
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        tbody.appendChild(row2);
+        btn_enable(btn_id,btn_name);
     }finally{
         await closePortTransbanck();
-        await disconnectTransbankAgente();
+        await disconnectTransbankAgent();
         console.log("finally function TransbankSale");
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
     }
 }
+//cerrar las ventas del dia y obtener todal desde el pos
 async function CloseDayTransbank(btn_id){
     /*
-    Evaluamos la conexion
-    ejecutamos el funcion de closeDay 
+    Funcion de Transbank closeDay()
+        Emitira la boleta con todos los detalles del día 
         retorna la id terminal y el codigo del comercio 
-    evaluamos el mensaje de salida 
-    finalizamos con la desconexión 
-   
     */
-    var btn_name;
-    btn_name = document.getElementById(btn_id).innerHTML;
-    document.getElementById(btn_id).disabled = true;
-    document.getElementById(btn_id).innerHTML = "Enviando..";
-
+    let btn_name = document.getElementById(btn_id).innerHTML;
+    btn_disable(btn_id);
+    let SelectCom = document.getElementById("SelectCom");
+    if(SelectCom.value === ""){
+        alert("¡Seleccione un puerto!. Antes de ejecutar cualquier función.");
+        btn_enable(btn_id,btn_name);
+        return;
+    }
     const isConnect =  await Transbank.POS.isConnected;
    if (isConnect){
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
         console.log("Agente en uso.");
         return;
     }else{
@@ -976,14 +1020,21 @@ async function CloseDayTransbank(btn_id){
         if(isConnectP.connected){
             console.log("EL Puerto esta conectado. Reconectando");
             await closePortTransbanck();
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }else{
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){ 
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }
     }
     try{
         const closeday = await Transbank.POS.closeDay();
-        console.log(closeday);
         if (closeday != null){
             if (closeday.responseCode === 0){
                 var msj = " ";
@@ -996,47 +1047,61 @@ async function CloseDayTransbank(btn_id){
                     }
                 }
                 showAlerts("Cierre de caja: "+msj+" Procede a Cerrar Caja.","alert-success","elementsAlertInfo");
+                hidenConteinerAlert({Info: false});
+                hidenContainerTable();
+
             }else if (closeday.responseCode === 1){
                 showAlerts("Cierre de Caja fue Rechazado.","alert-warning","elementsAlertInfo");
+                hidenConteinerAlert({Info: false});
+                hidenContainerTable();
+
             }else {
                 tablaErrorsResponse(parseInt(closeday.responseCode));
+                hidenContainerTable();
+
             }
         }else {
             showAlerts("- Elementos no encontrados.","alert-danger","elementsAlertInfo");
+            hidenConteinerAlert({Info: false});
         }
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
+        
     } catch (error) {
-        showAlerts("- "+error,"alert-warning","elementsAlertInfo");
+        console.log("-Error Close day: "+error);
+        if (error.includes("Cannot read properties of null (reading 'once')")){
+            console.log(error);
+        }else{
+           showAlerts("- "+error,"alert-warning","elementsAlertInfo"); 
+           hidenConteinerAlert({Info: false});
+        }
+        
     }finally{
         await closePortTransbanck();
-        await disconnectTransbankAgente(); 
+        await disconnectTransbankAgent(); 
         console.log("fanllity funcion cierre de día") 
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
+
     }
 }
 // obtenemos la última venta 
 async function LastSaleTransbank(btn_id) {
     /*
-        Evaluamos la conexion 
-        ejecutamos la funcion getLastSale() --> todos los datos de la última venta que este en la memoria del POS. De paso emite su boleta
-        generamos una tabla con el resultado esperado 
-        en caso de error entregamos un mensaje 
-        finalizamos desconexion  
+    Ejecutamos la Funcion de Transbank getLastSale();
+        (todos los datos de la última venta que este en la memoria del POS. De paso emite su boleta)
+        Retorna 
+            un Objeto con los datos de la última venta 
     */
-    var btn_name;
-    btn_name = document.getElementById(btn_id).innerHTML;
-    document.getElementById(btn_id).disabled = true;
-    document.getElementById(btn_id).innerHTML = "Enviando..";
-
+    let btn_name = document.getElementById(btn_id).innerHTML;
+    btn_disable(btn_id);
+    let SelectCom = document.getElementById("SelectCom");
+    if(SelectCom.value === ""){
+        alert("¡Seleccione un puerto!. Antes de ejecutar cualquier función.");
+        btn_enable(btn_id,btn_name);
+        return;
+    }
     const isConnect =  await Transbank.POS.isConnected;
     if (isConnect){
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
         console.log("Agente en uso.");
         return;
     }else{
@@ -1045,9 +1110,17 @@ async function LastSaleTransbank(btn_id) {
         if(isConnectP.connected){
             console.log("EL Puerto esta conectado. Reconectando");
             await closePortTransbanck();
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }else{
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){ 
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }
     }
     try {
@@ -1055,15 +1128,11 @@ async function LastSaleTransbank(btn_id) {
         console.log(result2,"soy la ultima venta");
         if (result2.responseCode === 11){
             showAlerts("- No existe venta para mostrar.", "alert-warning", "elementsAlertInfo");
-            return
+            hidenConteinerAlert({Info: false});
+            return;
         }
-        let divtabledetalle = document.getElementById("elementTableDetalle");
-        let divtablelastsale = document.getElementById("elementTableLastSale");
-        
-        if (divtabledetalle.style.display === "block"){
-            divtabledetalle.style.display = "none";
-        }
-        divtablelastsale.style.display = "block";
+
+        hidenContainerTable({lastSaleSuccess:false});
 
         var table = document.getElementById("tableLastSale");
         //antes de cargar la tabla eliminamos los elementos antiguos.
@@ -1275,31 +1344,39 @@ async function LastSaleTransbank(btn_id) {
             }
         } 
         tbody.appendChild(row2);
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
+        hidenConteinerAlert();
     } catch (error) {
         console.log("-  "+error);
-        showAlerts(error,"alert-danger","elementsAlertInfo");
+        if (error.includes("Cannot read properties of null (reading 'once')")){
+            console.log(error);
+        }else{
+            showAlerts(error,"alert-danger","elementsAlertInfo");
+            hidenConteinerAlert({Info: false});
+        }
     }finally{
         await closePortTransbanck();
-        await disconnectTransbankAgente();
+        await disconnectTransbankAgent();
         console.log("finally function  LastSaleTransbank");
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
     }
 }
 //funcion de transbank uso pos 
 async function getpoll(){
-    try{        
+    /*
+    Ejecutamos la Funcion de Transbank poll()
+        retorna un bool
+    */
+    try{  
+        let SelectCom = document.getElementById("SelectCom");
+        if(SelectCom.value === ""){return;}      
         let portStutas = await ConnectAgentPortPoll();
         if(portStutas === true){
             const pollStatus =  await Transbank.POS.poll();
             if (pollStatus){
                 console.log("Status Poll: ",pollStatus);
                 await closePortTransbanck();
-                await disconnectTransbankAgente()
+                await disconnectTransbankAgent()
             }
         }else{
             return;
@@ -1313,23 +1390,21 @@ async function getpoll(){
 //Obtenemos todas las ventas 
 async function transbankSaleDetails(btn_id){
     /*
-    Evaluamos la conexion
-    Solicitamos el getDetails(bool) --> False
-    evaluamos la respuesta para poder mostrar un mensaje o generar la tabla donde muestre todass las ventas disponibles
-    luego al momento de finalizar la funcion llamamos la funcion poll parar poder terminar la comunicacion del POS 
-    se llama getpoll depues de esta funcion lo cual se espera como resultado un error 
-    esto probora cerrar el puerto y cerrar el agenet   
+    Ejecutamos la Funcion de Transbank getDetails(bool)
+        En este Caso de uso bool = False
+        Retornara un objeto con todas las ventas que tenga guardada en la memoria
     */
-    var btn_name;
-    btn_name = document.getElementById(btn_id).innerHTML;
-    document.getElementById(btn_id).disabled = true;
-    document.getElementById(btn_id).innerHTML = "Enviando..";
-
+    let btn_name = document.getElementById(btn_id).innerHTML;
+    btn_disable(btn_id);
+    let SelectCom = document.getElementById("SelectCom");
+    if(SelectCom.value === ""){
+        alert("¡Seleccione un puerto!. Antes de ejecutar cualquier función.");
+        btn_enable(btn_id,btn_name);
+        return;
+    }
     const isConnect =  await Transbank.POS.isConnected;
     if (isConnect){
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        btn_enable(btn_id,btn_name);
         console.log("Agente en uso.");
         return;
     }else{
@@ -1338,42 +1413,51 @@ async function transbankSaleDetails(btn_id){
         if(isConnectP.connected){
             console.log("EL Puerto esta conectado. Reconectando");
             await closePortTransbanck();
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }else{
-            await ConnectTransbankPosOpenPort();
+            const isPort = await ConnectTransbankPosOpenPort();
+            if (!isPort){ 
+                btn_enable(btn_id,btn_name);
+                return;
+            }
         }
     }
     try {
         let result2 = await Transbank.POS.getDetails(false);
-        console.log(result2);
         if (result2.length === 0){
             showAlerts("- No existen ventas para mostrar.", "alert-warning", "elementsAlertInfo")
-            return
+            hidenConteinerAlert({Info: false});
+            return;
         }
+        hidenContainerTable({detailsSuccess:false});
         await tableDetailsSale(result2);
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        hidenConteinerAlert();
+        btn_enable(btn_id,btn_name);
     } catch (error) {
         console.log('Error Details : ', error);
-        showAlerts(error,"alert-danger","elementsAlertInfo");
+        if (error.includes("Cannot read properties of null (reading 'once')")){
+            console.log(error);
+        }else{
+            showAlerts(error,"alert-danger","elementsAlertInfo");
+            hidenConteinerAlert({Info: false});
+        }
         return;
     }finally{
         await closePortTransbanck();
-        await disconnectTransbankAgente();
-        let btn = document.getElementById(btn_id);
-        btn.innerHTML= btn_name; 
-        btn.disabled = false;
+        await disconnectTransbankAgent();
         await getpoll();
-       
-        console.log("finally function: "+error);
+        btn_enable(btn_id,btn_name);
+        console.log("finally function transbankSaleDetails");
     }
 }
-
 /*
-    Funciones de Llamadoes de tablas
+    Funciones de tablas
 */
-// generamos la tabla del detalle de ventas 
+// Generamos la tabla del detalle de ventas 
 async function tableDetailsSale(objetoDetails){
     try{
         const timedate =new Date();
@@ -1383,7 +1467,6 @@ async function tableDetailsSale(objetoDetails){
         //antes de cargar la tabla eliminamos los elementos antiguos.
         deleteElementsTable('tableDetalle'); 
         for (let y = 0; y <objetoDetails.length; y++) {
-            console.log("primer element: ",objetoDetails[y]);
             let data_key = Object.keys(objetoDetails[y]);
             let data_value = objetoDetails[y];
             if (data_value.length === 0){
@@ -1391,15 +1474,10 @@ async function tableDetailsSale(objetoDetails){
                 break
             }
             //head 
-
-            let divtabledetalle = document.getElementById("elementTableDetalle");
-            divtabledetalle.style.display = "block";
             var thead = table.querySelector('thead');
             var state = thead.querySelector('tr');
             if (state === null){
-                console.log(data_value);
                 var iskeySharesNumber = "sharesNumber" in data_value;
-                console.log(iskeySharesNumber);
                 const row1 = document.createElement("tr");
                 for (let i = 0; i <data_key.length; i++) {
                     const th = document.createElement("th");
@@ -1485,7 +1563,6 @@ async function tableDetailsSale(objetoDetails){
             for (let x = 0; x <data_key.length; x++) {
                 const td = document.createElement("td");
                 let bandera = false;
-                let msj = "";
                 if(data_key[x] === "functionCode"){
                     bandera = true;
                 }else if(data_key[x] === "responseCode"){
@@ -1613,31 +1690,38 @@ function tablaErrorsResponse(errorCode){
         if (errorCode === 26){
             LoadKeyTransbank();
             showAlerts("- Recargando LLaves , Reintente la operación.","alert-warning", "elementsAlertStatus");
+            hidenConteinerAlert({Status:false});
         }
         if (tableErrorRefund.includes(errorCode)){
             showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertRefund");
             console.log("2");
+            hidenConteinerAlert({Refund:false});
+
         } else if (tableErrorPOS.includes(errorCode)){
             showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertStatus");
+            hidenConteinerAlert({Status:false});
             console.log("3");
         }else if (tablaErrorSale.includes(errorCode)){
             showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertSale");
+            hidenConteinerAlert({Sale:false});
             console.log("4");
         }else if (tableErrorLastSale.includes(errorCode)){
             showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertInfo");
+            hidenConteinerAlert({Info:false});
             console.log("5");
         }else {
             showAlerts(responseCodesPos[errorCode],"alert-warning", "elementsAlertStatus");
+            hidenConteinerAlert({Status:false});
             console.log("6");
         }  
     }
 }
-// generamos tabla de ventas exitosa
+// Generamos tabla de ventas exitosa
 async function setTableExitosa(result) {
     try{
         let table = document.getElementById("tableExitosa");
-        var divTable = document.getElementById("elementTableSuccess");
-        divTable.style.display = "block";
+        // var divTable = document.getElementById("elementTableSuccess");
+        // divTable.style.display = "block";
         let data_key = Object.keys(result);
         let data_value = result;
         //head 
@@ -1857,16 +1941,15 @@ async function setTableExitosa(result) {
         
     }
 }
-// generamos tabla de ventas fallidads
+// Generamos tabla de ventas fallidads
 async function setTableFallida(result) {
     try{
         var table = document.getElementById("tableFallida");
-        var divTable = document.getElementById("elementTableDanger");
-        divTable.style.display = "block";
+        // var divTable = document.getElementById("elementTableDanger");
+        // divTable.style.display = "block";
         let data_key = Object.keys(result);
         
         //head 
-        console.log(table);
         var thead = table.querySelector('thead');
         var state = thead.querySelector('tr');
         if (state === null){
@@ -1977,83 +2060,11 @@ async function deleteElementsTable(tableName){
     let table = document.getElementById(tableName);
     var tbody = table.querySelector('tbody');
     var state = tbody.querySelectorAll('tr')
-    console.log(state);
     for(let i = 0 ; i < state.length; i++){
-        console.log(state[i]);
         state[i].remove();
     }
 }
 
-async function ConnectAgentSelectPort(){
-    /* 
-    manufacturer = fabricante del dispositivos.
-    vendorId =  Identifica al fabricante del dispositivo.
-    productId = Identifica el modelo específico del dispositivo.
-    let manufacturer = "INGENICO";
-    let vendorId = "0B00";
-    let productId = "0054";
-
-    localstorage javascript
-    */
-   
-
-
-    try{
-        let SelectCom = document.getElementById("SelectCom")
-        let isConnect = await Transbank.POS.isConnected;
-        let response = await fetch("https://localhost:8090/");
-      
-        if (response){
-            //console.log("online");
-            if (isConnect != true){
-                let connect = await Transbank.POS.connect();
-                console.log("- Agente Conectado Correctamente."); 
-                if(connect){
-                    const PortSelect = await Transbank.POS.getPorts();
-                    if (PortSelect.length != 0 ){
-                        for(let i=0; i<PortSelect.length; i++){
-                            let data_key = Object.keys(PortSelect[i]); 
-                            let data_value = PortSelect[i];
-                            const option = document.createElement("option");
-                            option.value = data_value["path"];
-                            option.innerHTML = data_value["path"]+" - "+data_value["manufacturer"];
-                            SelectCom.appendChild(option);
-
-                        }
-                        await disconnectTransbankAgente();
-                    }else{
-                        showAlerts("- No se encontraron dispositivos disponibles.","alert-danger","elementsAlertStatus");
-                    }
-                }else {
-                    showAlerts("- No se pudo establecer conexion con el agente.","alert-warning","elementsAlertStatus");
-                }
-            } else { 
-                showAlerts("- Ya estas Conectado al Agente.","alert-warning","elementsAlertStatus");
-            }
-        } 
-    } catch(error){
-        //console.log("Offline");
-        showAlerts("- El Agente no se encuentra Despeglado.","alert-danger","elementsAlertStatus");
-
-    }finally{
-        await disconnectTransbankAgente();
-        console.log("finally function ConnectAgentSelectPort");
-    }
-    
-}
-let SelectCom = document.getElementById("SelectCom");
-var PortCom = localStorage.getItem("PortCom");
-if(!PortCom){
-    console.log("No hay localStorage creado");
-    let option = document.createElement("option");
-    option.disabled = true;
-    option.setAttribute("selected")
-    SelectCom.appendChild(option);
-
-}else{
-    console.log(" hay localStorage creado");
-    let option = document.createElement("option");
-    option.val = PortCom.val;
-    option.setAttribute("selected");
-    SelectCom.appendChild(SelectCom);
-}
+document.addEventListener("DOMContentLoaded", function() {
+    ConnectAgentChargeSelect();
+});
